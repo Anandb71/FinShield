@@ -1,7 +1,7 @@
-name: finshield_app
-description: "FinShield - The Financial Flight Recorder"
+name: finshield
+description: "FinShield - Universal Financial Document Intelligence"
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0+1
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -10,24 +10,20 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # State Management
+  # State Management (Best-in-class)
   flutter_riverpod: ^2.4.9
-  riverpod_annotation: ^2.3.3
   
   # Networking
   dio: ^5.4.0
-  web_socket_channel: ^2.4.0
   
-  # Audio Recording
-  record: ^5.0.4
-  permission_handler: ^11.1.0
+  # File Operations
+  file_picker: ^8.0.0
   
-  # UI Enhancements
+  # UI Framework
   google_fonts: ^6.1.0
   animate_do: ^3.1.2
   shimmer: ^3.0.0
   flutter_animate: ^4.3.0
-  glassmorphism: ^3.0.0
   
   # Icons
   cupertino_icons: ^1.0.6
@@ -36,18 +32,12 @@ dependencies:
   # Utilities
   intl: ^0.19.0
   uuid: ^4.2.2
+  graphview: ^1.5.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  riverpod_generator: ^2.3.9
-  build_runner: ^2.4.7
 
 flutter:
   uses-material-design: true
-  
-  # Uncomment when adding assets:
-  # assets:
-  #   - assets/images/
-  #   - assets/animations/

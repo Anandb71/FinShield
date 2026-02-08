@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.api import router as api_router
+from app.sockets import setup_websocket_routes
 
 
 def create_app() -> FastAPI:
@@ -33,8 +34,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Include API routes
+    # Include REST API routes
     app.include_router(api_router)
+    
+    # Register WebSocket routes
+    setup_websocket_routes(app)
 
     @app.get("/")
     async def root():
@@ -45,6 +49,7 @@ def create_app() -> FastAPI:
             "status": "operational",
             "docs": "/docs",
             "health": "/api/v1/health",
+            "websocket": "/ws/stream/{client_id}",
         }
 
     return app

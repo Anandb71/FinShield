@@ -1,0 +1,51 @@
+# FinShield - Full Stack Development Environment
+# Run all services with: docker-compose up
+
+version: '3.8'
+
+services:
+  # FastAPI Backend
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=true
+      - HOST=0.0.0.0
+      - PORT=8000
+      # Add your API keys here for production
+      # - HOTFOOT_AUDIO_API_KEY=your_key
+      # - HOTFOOT_DOCS_API_KEY=your_key
+      # - BACKBOARD_API_KEY=your_key
+      # - BACKBOARD_WORKSPACE_ID=your_workspace
+    volumes:
+      - ./backend/app:/app/app:ro  # Hot reload in dev
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Development server for backend (alternative to production build)
+  api-dev:
+    image: python:3.11-slim
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: >
+      bash -c "pip install -e . && 
+               uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      - DEBUG=true
+    profiles:
+      - dev
+
+networks:
+  default:
+    name: finshield-network

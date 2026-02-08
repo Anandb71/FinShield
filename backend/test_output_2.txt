@@ -1,0 +1,12 @@
+Testing Real Document Upload via Service Layer...
+Analyzing test.pdf...
+DEBUG SERVICE: POST https://app.backboard.io/api/threads/df6fa667-b0f6-47de-b800-75b90893cdd1/messages
+DEBUG SERVICE headers: {'X-API-Key': 'espr_OkJGNjjZxsqiTXyfuO0NO2BJ5NFHQ7PQmCtQbpDOAeQ'}
+DEBUG SERVICE data: {'content': 'Analyze this document. Classify it (Invoice, Bank Statement, etc.) and extract key fields as JSON.', 'stream': 'false', 'send_to_llm': 'true'}
+DEBUG SERVICE files keys: dict_keys(['files'])
+
+--- Analysis Result ---
+Status: success
+Doc ID: df6fa667-b0f6-47de-b800-75b90893cdd1
+Classification: {'type': 'unknown', 'confidence': 0.0}
+Extracted Fields: {}

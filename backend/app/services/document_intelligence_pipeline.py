@@ -58,103 +58,81 @@ class DocumentIntelligencePipeline:
         start_time = datetime.now()
         
         try:
-            # Step 1: Analyze document with Backboard
-            logger.info(f"Step 1: Analyzing {filename} with Backboard")
-            analysis = await self.backboard.analyze_document(pdf_bytes, filename)
+            # Step 1: Analyze document with Backboard (Single Pass)
+            logger.info(f"Step 1: Analyzing {filename} with Backboard Assistant")
+            try:
+                analysis = await self.backboard.analyze_document(pdf_bytes, filename)
+            except Exception as e:
+                logger.error(f"Backboard Assistant API failed: {e}")
+                raise e # Re-raise to let the caller handle it (or global exception handler)
             
             if analysis["status"] == "failed":
-                return {
-                    "document_id": doc_id,
-                    "filename": filename,
-                    "error": analysis.get("error"),
-                    "status": "failed"
-                }
+                raise Exception(f"Analysis failed: {analysis.get('error')}")
             
+            # The new API returns everything in one go
+            extracted_fields = analysis.get("extracted_fields", {})
             doc_type = analysis["classification"].get("type", "unknown")
+            
             logger.info(f"Document classified as: {doc_type}")
-            
-            # Step 2: Schema-aware extraction
-            logger.info(f"Step 2: Extracting fields for {doc_type}")
-            schema_fields = get_schema_fields(doc_type)
-            
-            extraction = await self.backboard.extract_with_schema(
-                pdf_bytes,
-                doc_type,
-                schema_fields
-            )
-            
-            if extraction["status"] == "failed":
-                return {
-                    "document_id": doc_id,
-                    "filename": filename,
-                    "error": extraction.get("error"),
-                    "status": "failed"
-                }
-            
-            extracted_fields = extraction["extracted_fields"]
             logger.info(f"Extracted {len(extracted_fields)} fields")
             
-            # Step 3: Validate data
-            logger.info("Step 3: Validating extracted data")
+            # Step 2: Validate data
+            logger.info("Step 2: Validating extracted data")
             validation = self.validator.validate(doc_type, extracted_fields)
-            logger.info(f"Validation: {'PASSED' if validation['valid'] else 'FAILED'}")
-            
-            # Step 4: Store in knowledge graph
-            logger.info("Step 4: Storing in knowledge graph")
-            await self.backboard.store_document(
-                doc_id=doc_id,
-                content=analysis["text_content"],
-                metadata={
-                    "type": doc_type,
-                    "filename": filename,
-                    "entities": extracted_fields
-                }
-            )
-            
-            # Step 5: Check cross-document consistency
-            logger.info("Step 5: Checking consistency")
-            consistency_check = {"consistent": True, "explanation": "No checks performed"}
-            
-            if "vendor_name" in extracted_fields:
-                consistency_check = await self.backboard.check_consistency(
-                    doc_id=doc_id,
-                    field_name="vendor_name",
-                    field_value=extracted_fields["vendor_name"]
-                )
-            elif "employer_name" in extracted_fields:
-                consistency_check = await self.backboard.check_consistency(
-                    doc_id=doc_id,
-                    field_name="employer_name",
-                    field_value=extracted_fields["employer_name"]
-                )
             
             # Calculate processing time
             processing_time = (datetime.now() - start_time).total_seconds()
             
             return {
-                "document_id": doc_id,
+                "document_id": analysis.get("document_id", doc_id),
                 "filename": filename,
-                "classification": {
-                    "type": doc_type,
-                    "confidence": analysis["classification"].get("confidence", 0.0)
-                },
+                "classification": analysis["classification"],
                 "extracted_fields": extracted_fields,
-                "layout": analysis["layout"],
-                "tables": analysis["tables"],
+                "layout": analysis.get("layout", {}),
+                "tables": analysis.get("tables", []),
                 "validation": validation,
-                "consistency_check": consistency_check,
+                "consistency_check": {"consistent": True, "explanation": "Checks skipped in v2"},
                 "processing_time_seconds": processing_time,
                 "status": "success"
             }
             
         except Exception as e:
             logger.error(f"Document processing failed: {e}")
-            return {
-                "document_id": doc_id,
-                "filename": filename,
-                "error": str(e),
-                "status": "failed"
-            }
+            # NO MOCK FALLBACK for now - we want to see real errors if it fails
+            raise e
+
+    def _get_mock_analysis(self, filename: str, doc_id: str) -> Dict[str, Any]:
+        """Generate mock analysis for demo/fallback."""
+        import random
+        doc_type = "invoice" if "invoice" in filename.lower() else "bank_statement"
+        
+        return {
+            "document_id": doc_id,
+            "filename": filename,
+            "classification": {
+                "type": doc_type,
+                "confidence": 0.95
+            },
+            "extracted_fields": {
+                "vendor_name": "Acme Corp",
+                "invoice_number": f"INV-{random.randint(1000, 9999)}",
+                "total_amount": f"${random.randint(100, 5000)}.00",
+                "date": datetime.now().strftime("%Y-%m-%d")
+            },
+            "layout": {},
+            "tables": [],
+            "validation": {"valid": True, "errors": []},
+            "consistency_check": {
+                "consistent": False,
+                "explanation": "Simulated discrepancy: Invoice amount matches PO, but vendor mismatch.",
+                "conflicting_docs": [{"source": "PO-123", "text": "Vendor: Beta Inc"}]
+            },
+            "processing_time_seconds": 1.5,
+            "status": "success",
+            "note": "SIMULATED DATA (Backboard API Unreachable)"
+        }
+            
+
 
 
 # Global pipeline instance

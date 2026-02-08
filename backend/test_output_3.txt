@@ -1,0 +1,12 @@
+Testing Real Document Upload via Service Layer...
+Analyzing test.pdf...
+DEBUG SERVICE: POST https://app.backboard.io/api/threads/406f0fa2-f77f-40c0-a99a-6f8063cbe4a6/messages
+DEBUG SERVICE headers: {'X-API-Key': 'espr_OkJGNjjZxsqiTXyfuO0NO2BJ5NFHQ7PQmCtQbpDOAeQ'}
+DEBUG SERVICE data: {'content': 'Analyze this document. Classify it (Invoice, Bank Statement, etc.) and extract key fields as JSON.', 'stream': 'false', 'memory': 'off', 'send_to_llm': 'true', 'llm_provider': 'openai', 'model_name': 'gpt-4o'}
+DEBUG SERVICE files keys: dict_keys(['files'])
+
+--- Analysis Result ---
+Status: success
+Doc ID: 406f0fa2-f77f-40c0-a99a-6f8063cbe4a6
+Classification: {'type': 'unknown', 'confidence': 0.0}
+Extracted Fields: {}

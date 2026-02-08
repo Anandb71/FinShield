@@ -1,9 +1,16 @@
-
 import random
 from typing import Dict, Any, List
-# from app.services.audio_processor import AudioProcessorBase  # Assuming interface exists
+from abc import ABC, abstractmethod
 
-class MockAudioProcessor:
+class AudioProcessorBase(ABC):
+    """Base class for audio processor."""
+    
+    @abstractmethod
+    async def process_chunk(self, audio_bytes: bytes) -> Dict[str, Any]:
+        """Process a chunk of audio."""
+        pass
+
+class MockAudioProcessor(AudioProcessorBase):
     def __init__(self):
         self._chunk_count = 0
         self._transcript_segments = [
@@ -97,3 +104,16 @@ class MockAudioProcessor:
         if scenario_name in self.scenarios:
             self.current_scenario = scenario_name
             self._chunk_count = 0 # Reset transcript loop
+
+
+# Global instance
+_audio_processor = None
+
+
+def get_audio_processor() -> AudioProcessorBase:
+    """Get or create audio processor instance."""
+    global _audio_processor
+    if _audio_processor is None:
+        _audio_processor = MockAudioProcessor()
+    return _audio_processor
+

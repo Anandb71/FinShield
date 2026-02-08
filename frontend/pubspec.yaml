@@ -12,12 +12,13 @@ dependencies:
   
   # State Management (Best-in-class)
   flutter_riverpod: ^2.4.9
+  provider: ^6.1.1
   
   # Networking
   dio: ^5.4.0
   
   # File Operations
-  file_picker: ^8.0.0
+  file_picker: ^10.3.10
   
   # UI Framework
   google_fonts: ^6.1.0

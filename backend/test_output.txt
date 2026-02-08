@@ -1,0 +1,10 @@
+Testing Real Document Upload via Service Layer...
+Analyzing test.pdf...
+Backboard document analysis failed: Client error '422 Unprocessable Entity' for url 'https://app.backboard.io/api/assistants/None/threads'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422
+
+--- Analysis Result ---
+Status: failed
+Doc ID: None
+Classification: None
+Extracted Fields: None

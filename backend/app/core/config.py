@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Backboard.io Configuration (Document Intelligence + Knowledge Graph)
     backboard_api_key: str = "espr_OkJGNjjZxsqiTXyfuO0NO2BJ5NFHQ7PQmCtQbpDOAeQ"
-    backboard_api_url: str = "https://api.backboard.io/v1"
+    backboard_api_url: str = "https://app.backboard.io/api"
     backboard_workspace_id: str = ""
 
     # AI Service Configuration (placeholders for Hotfoot)

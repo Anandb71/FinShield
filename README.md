@@ -1,103 +1,53 @@
-# 🛡️ FinShield - The Financial Flight Recorder
+# Finsight: Autonomous Auditor 🛡️
 
-> **Autonomous, real-time defense system for mobile users that detects financial fraud during live calls and scans contracts for predatory clauses.**
+> **The Forensic Knowledge Graph for Financial Intelligence.**  
+> *Formerly "FinShield"*
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.11+-green.svg)
-![Flutter](https://img.shields.io/badge/flutter-3.16+-blue.svg)
+![Finsight Banner](https://via.placeholder.com/1200x600.png?text=Finsight:+Forensic+Knowledge+Graph)
 
----
-
-## 🎯 Mission
-
-FinShield acts as your personal financial bodyguard:
-
-- **📞 Call Shield**: Real-time analysis of phone calls to detect urgency manipulation, fear tactics, and pressure techniques used by scammers
-- **📄 Contract Scanner**: Instant detection of predatory clauses, hidden fees, and exploitative terms in financial documents
-- **🧠 Context Engine**: Cross-references audio patterns against document analysis for comprehensive threat assessment
+Finsight is an autonomous auditing system that uses a **Forensic Knowledge Graph** to detect fraud, verify payments, and uncover hidden conflicts of interest across thousands of documents.
 
 ---
 
-## 🏗️ Architecture
+## 🚀 Key Features
 
-```
-FinShield/
-├── backend/          # FastAPI Python service
-│   ├── app/
-│   │   ├── api/v1/   # Versioned REST endpoints
-│   │   ├── services/ # AI service abstractions
-│   │   └── core/     # Configuration & security
-│   └── Dockerfile
-│
-├── frontend/         # Flutter mobile app
-│   ├── lib/
-│   │   ├── core/     # Theme, constants
-│   │   ├── features/ # Feature modules
-│   │   └── services/ # API clients
-│   └── pubspec.yaml
-│
-└── docker-compose.yml
-```
+### 1. Investigation Board (The Graph)
+No more lists. Visualize your financial network.
+- **Interactive Graph**: Navigate Invoices (Blue), Vendors (Yellow), and Risks (Red).
+- **Conflict Hunter**: Automatically detects shared addresses/phones between Vendors and Employees.
+- **Time Travel**: Filter the graph timeline with a slider.
+
+### 2. X-Ray Reconciliation
+Verify if an invoice was *actually* paid.
+- **Smart Match**: Auto-links Invoices to Bank Transactions (Exact & Fuzzy Matching).
+- **Ghost Detection**: Flags "Ghost Invoices" (No payment found).
+- **Human-in-the-Loop**: "Force Match" logic feeds the learning loop.
+
+### 3. Visual Nervous System
+- **Deep Document Understanding**: X-Ray overlays for Tables, Entities, and Anomalies.
+- **Consistency Engine**: Checks historical patterns (e.g., "Invoice amount is 20% higher than average").
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ Tech Stack
+- **Frontend**: Flutter (GraphView, Animate_Do, Riverpod)
+- **Design**: "Government-Grade" Dark Mode UI
+- **Backend Logic**: Python (Consistency & Reconciliation Engines)
 
-### Backend
+---
+
+## 🏃‍♂️ Quick Start
 
 ```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate  # Windows
-pip install -e .
-python scripts/dev.py
-```
-
-API available at: `http://localhost:8000`
-
-### Frontend
-
-```bash
+# Frontend
 cd frontend
-flutter pub get
-flutter run
+flutter run -d chrome
 ```
 
 ---
 
-## 🔌 API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/health` | GET | Service health check |
-| `/api/v1/analyze` | POST | Analyze audio/document for threats |
-
----
-
-## 🧠 Core Intelligence Stack
-
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| Audio Analysis | Hotfoot Audio | Real-time intent/urgency detection |
-| Document Scanning | Hotfoot Docs | Entity & clause extraction |
-| Context Engine | Backboard.io RAG | Cross-reference audio vs documents |
-
----
-
-## 🎨 Design Philosophy
-
-- **Dark Mode First**: Cyber-security aesthetic with neon accents
-- **Privacy Focused**: All processing can run on-device
-- **Modular AI**: Plug-and-play service abstractions
-
----
-
-## 📜 License
-
-MIT License - Built for protection, not profit.
-
----
-
-<p align="center">
-  <strong>🛡️ Your Financial Guardian Angel 🛡️</strong>
-</p>
+## 📍 Roadmap
+- [x] Phase 1: Audio Intelligence (Archived)
+- [x] Phase 2: Document X-Ray
+- [x] Phase 3: Forensic Knowledge Graph (Current)
+- [ ] Phase 4: Automated Subpoena Generation

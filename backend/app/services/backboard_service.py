@@ -96,8 +96,24 @@ class BackboardDocumentService:
                 thread_resp.raise_for_status()
                 thread_id = thread_resp.json().get("thread_id")
                 
-                # 3. Send Message with File
-                prompt = "Analyze this document. Classify it (Invoice, Bank Statement, etc.) and extract key fields as JSON."
+                # 3. Send Message with File - with structured prompt
+                prompt = """Analyze this document and return ONLY a JSON object with this EXACT structure:
+
+{
+    "classification": {
+        "type": "invoice" or "bank_statement" or "payslip" or "contract" or "unknown",
+        "confidence": 0.95
+    },
+    "extracted_fields": {
+        "field_name": "value"
+    }
+}
+
+For invoices, extract: invoice_number, vendor_name, total_amount, date, bill_to
+For bank statements, extract: account_number, bank_name, opening_balance, closing_balance
+For payslips, extract: employee_name, employer_name, gross_salary, net_salary
+
+Return ONLY the JSON, no explanations."""
                 
                 # httpx handles multipart if 'files' is provided. 'data' fields become form fields.
                 # API expects 'send_to_llm' as boolean or string "true"?
@@ -131,6 +147,12 @@ class BackboardDocumentService:
                     files=files,
                     headers=headers_no_ct
                 )
+                
+                # DEBUG: Log HTTP response details
+                logger.info(f"[BACKBOARD] HTTP Status: {msg_resp.status_code}")
+                logger.info(f"[BACKBOARD] Response Headers: {dict(msg_resp.headers)}")
+                logger.info(f"[BACKBOARD] Response Body (first 1000 chars): {msg_resp.text[:1000]}")
+                
                 msg_resp.raise_for_status()
                 result = msg_resp.json()
                 
@@ -139,9 +161,11 @@ class BackboardDocumentService:
                 # We need to parse it.
                 
                 ai_response_text = result.get("content", "")
+                logger.info(f"[BACKBOARD] AI content field: {ai_response_text[:500] if ai_response_text else 'EMPTY'}")
                 
                 # Attempt to extract JSON from markdown code blocks if present
                 parsed_json = self._extract_json(ai_response_text)
+
                 
                 return {
                     "document_id": thread_id, # Use thread_id as document_id for simplicity in this context
@@ -166,21 +190,35 @@ class BackboardDocumentService:
 
     def _extract_json(self, text: str) -> Dict[str, Any]:
         """Check for markdown JSON blocks"""
+        logger.info(f"[_extract_json] Input text length: {len(text)}")
+        logger.info(f"[_extract_json] First 500 chars: {text[:500]}")
+        
         try:
             if "```json" in text:
+                logger.info("[_extract_json] Found ```json block")
                 start = text.find("```json") + 7
                 end = text.find("```", start)
                 json_str = text[start:end].strip()
-                return json.loads(json_str)
+                logger.info(f"[_extract_json] Extracted JSON: {json_str[:200]}")
+                parsed = json.loads(json_str)
+                logger.info(f"[_extract_json] Parse SUCCESS: {parsed}")
+                return parsed
             elif "```" in text:
-                 # fallback if user forgot 'json' tag
+                logger.info("[_extract_json] Found ``` block (no json tag)")
                 start = text.find("```") + 3
                 end = text.find("```", start)
                 json_str = text[start:end].strip()
-                return json.loads(json_str) 
+                logger.info(f"[_extract_json] Extracted: {json_str[:200]}")
+                parsed = json.loads(json_str) 
+                logger.info(f"[_extract_json] Parse SUCCESS: {parsed}")
+                return parsed
             # Try parsing whole text
-            return json.loads(text)
-        except:
+            logger.info("[_extract_json] Trying to parse whole text as JSON")
+            parsed = json.loads(text)
+            logger.info(f"[_extract_json] Parse SUCCESS: {parsed}")
+            return parsed
+        except Exception as e:
+            logger.error(f"[_extract_json] Parse FAILED: {e}")
             return {}
 
     async def extract_with_schema(

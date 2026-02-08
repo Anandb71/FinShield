@@ -28,11 +28,15 @@ class Settings(BaseSettings):
         "http://10.0.2.2:*",  # Android emulator
     ]
 
-    # AI Service Configuration (placeholders for Hotfoot/Backboard)
+
+    # Backboard.io Configuration (Document Intelligence + Knowledge Graph)
+    backboard_api_key: str = "espr_OkJGNjjZxsqiTXyfuO0NO2BJ5NFHQ7PQmCtQbpDOAeQ"
+    backboard_api_url: str = "https://api.backboard.io/v1"
+    backboard_workspace_id: str = ""
+
+    # AI Service Configuration (placeholders for Hotfoot)
     hotfoot_audio_api_key: str = ""
     hotfoot_docs_api_key: str = ""
-    backboard_api_key: str = ""
-    backboard_workspace_id: str = ""
 
     class Config:
         env_file = ".env"

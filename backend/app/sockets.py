@@ -12,8 +12,8 @@ from typing import Dict, Optional
 from fastapi import WebSocket, WebSocketDisconnect
 from dataclasses import dataclass, field
 
-from app.services.audio_processor import AudioProcessor, get_audio_processor
-from app.services.document_engine import DocumentEngine, get_document_engine
+from app.services.audio_processor import get_audio_processor
+from app.services.document_engine import get_document_engine
 
 
 @dataclass
@@ -158,6 +158,9 @@ async def handle_audio_stream(websocket: WebSocket, client_id: str) -> None:
                     "chunk_id": session.chunks_processed,
                     "bytes_processed": session.bytes_received,
                     "flags": result.get("flags", []),
+                    "transcript": result.get("transcript_snippet", ""),
+                    "intent": result.get("intent", "UNKNOWN"),
+                    "stress_score": result.get("stress_score", 0.0),
                     "timestamp": datetime.utcnow().isoformat(),
                 }
                 
@@ -179,33 +182,34 @@ async def handle_audio_stream(websocket: WebSocket, client_id: str) -> None:
         await manager.disconnect(client_id)
 
 
-def setup_websocket_routes(app):
-    """Register WebSocket routes on FastAPI app."""
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.websocket("/ws/stream/{client_id}")
+async def websocket_stream(websocket: WebSocket, client_id: str):
+    """
+    Real-time audio streaming endpoint.
     
-    @app.websocket("/ws/stream/{client_id}")
-    async def websocket_stream(websocket: WebSocket, client_id: str):
-        """
-        Real-time audio streaming endpoint.
-        
-        Connect with: ws://localhost:8000/ws/stream/{your_client_id}
-        Send: Binary audio data (Int16 PCM format)
-        Receive: JSON with risk analysis
-        """
-        await handle_audio_stream(websocket, client_id)
-    
-    @app.get("/ws/status")
-    async def websocket_status():
-        """Get WebSocket server status and active connections."""
-        return {
-            "active_connections": manager.connection_count,
-            "clients": [
-                {
-                    "client_id": session.client_id,
-                    "connected_at": session.connected_at.isoformat(),
-                    "chunks_processed": session.chunks_processed,
-                    "bytes_received": session.bytes_received,
-                    "current_risk_score": session.current_risk_score,
-                }
-                for session in manager.active_connections.values()
-            ]
-        }
+    Connect with: ws://localhost:8000/ws/stream/{your_client_id}
+    Send: Binary audio data (Int16 PCM format)
+    Receive: JSON with risk analysis
+    """
+    await handle_audio_stream(websocket, client_id)
+
+@router.get("/ws/status")
+async def websocket_status():
+    """Get WebSocket server status and active connections."""
+    return {
+        "active_connections": manager.connection_count,
+        "clients": [
+            {
+                "client_id": session.client_id,
+                "connected_at": session.connected_at.isoformat(),
+                "chunks_processed": session.chunks_processed,
+                "bytes_received": session.bytes_received,
+                "current_risk_score": session.current_risk_score,
+            }
+            for session in manager.active_connections.values()
+        ]
+    }

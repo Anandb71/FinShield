@@ -1,20 +1,19 @@
 import 'dart:async';
-import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/theme/liquid_theme.dart';
 import '../../core/services/api_service.dart';
-import '../../core/widgets/terminal_log_widget.dart';
-import '../ingestion/bulk_ingestion_screen.dart';
-import '../review/review_screen.dart';
-import '../inspector/doc_inspector_screen.dart';
+import '../../core/providers/navigation_provider.dart';
 
-/// Bento Grid Command Center - Real Backend Binding
+/// ═══════════════════════════════════════════════════════════════════════════════
+/// COMMAND CENTER DASHBOARD - Premium Bento Layout
+/// ═══════════════════════════════════════════════════════════════════════════════
+
 class CommandCenterDashboard extends StatefulWidget {
   const CommandCenterDashboard({super.key});
 
@@ -22,47 +21,52 @@ class CommandCenterDashboard extends StatefulWidget {
   State<CommandCenterDashboard> createState() => _CommandCenterDashboardState();
 }
 
-class _CommandCenterDashboardState extends State<CommandCenterDashboard> {
+class _CommandCenterDashboardState extends State<CommandCenterDashboard> 
+    with TickerProviderStateMixin {
   DashboardMetrics? _metrics;
   ErrorClusters? _errorClusters;
-  bool _isOnline = true;
+  bool _isOnline = false;
   bool _isLoading = true;
-  bool _terminalCollapsed = true;
   String? _error;
   
-  // Terminal logs
-  final List<String> _terminalLogs = [];
-  
-  // Live animation (can be removed if backend provides real-time data)
   Timer? _refreshTimer;
+  late AnimationController _pulseController;
+  
+  // Terminal logs
+  final List<String> _logs = [];
+  bool _terminalExpanded = false;
 
   @override
   void initState() {
     super.initState();
     
-    // Connect API logging to terminal
-    ApiService.onLog = (message) {
-      setState(() {
-        _terminalLogs.add('[${DateTime.now().toString().substring(11, 19)}] $message');
-        if (_terminalLogs.length > 100) _terminalLogs.removeAt(0);
-      });
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+    
+    ApiService.onLog = (msg) {
+      if (mounted) {
+        setState(() {
+          _logs.add('[${DateTime.now().toString().substring(11, 19)}] $msg');
+          if (_logs.length > 50) _logs.removeAt(0);
+        });
+      }
     };
     
     _loadData();
-    
-    // Refresh data every 30 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadData());
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _pulseController.dispose();
     ApiService.onLog = null;
     super.dispose();
   }
 
   Future<void> _loadData() async {
-    // Check health first
     final isOnline = await ApiService.checkHealth();
     
     if (!isOnline) {
@@ -74,7 +78,6 @@ class _CommandCenterDashboardState extends State<CommandCenterDashboard> {
       return;
     }
     
-    // Fetch metrics
     final metricsResult = await ApiService.getMetrics();
     final errorsResult = await ApiService.getErrorClusters();
     
@@ -97,200 +100,32 @@ class _CommandCenterDashboardState extends State<CommandCenterDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: LiquidTheme.background,
-      body: LiquidBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: LiquidTheme.neonCyan))
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          return Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: StaggeredGrid.count(
-                              crossAxisCount: 4,
-                              mainAxisSpacing: 10,
-                              crossAxisSpacing: 10,
-                              children: [
-                                StaggeredGridTile.extent(
-                                  crossAxisCellCount: 2,
-                                  mainAxisExtent: constraints.maxHeight * 0.48,
-                                  child: FadeInDown(child: _buildPipelineGauge()),
-                                ),
-                                StaggeredGridTile.extent(
-                                  crossAxisCellCount: 2,
-                                  mainAxisExtent: constraints.maxHeight * 0.23,
-                                  child: FadeInRight(child: _buildErrorClustersCard()),
-                                ),
-                                StaggeredGridTile.extent(
-                                  crossAxisCellCount: 2,
-                                  mainAxisExtent: constraints.maxHeight * 0.23,
-                                  child: FadeInRight(delay: const Duration(milliseconds: 100), child: _buildAccuracyCard()),
-                                ),
-                                StaggeredGridTile.extent(
-                                  crossAxisCellCount: 1,
-                                  mainAxisExtent: constraints.maxHeight * 0.48,
-                                  child: FadeInUp(child: _buildRecentIngestion()),
-                                ),
-                                StaggeredGridTile.extent(
-                                  crossAxisCellCount: 1,
-                                  mainAxisExtent: constraints.maxHeight * 0.48,
-                                  child: FadeInUp(delay: const Duration(milliseconds: 100), child: _buildQuickActions()),
-                                ),
-                                StaggeredGridTile.extent(
-                                  crossAxisCellCount: 2,
-                                  mainAxisExtent: constraints.maxHeight * 0.48,
-                                  child: FadeInUp(delay: const Duration(milliseconds: 200), child: _buildBrainVisualization()),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-              ),
-              TerminalLogWidget(
-                isCollapsed: _terminalCollapsed,
-                onToggle: () => setState(() => _terminalCollapsed = !_terminalCollapsed),
-                customLogs: _terminalLogs.isNotEmpty ? _terminalLogs : null,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    final totalDocs = _metrics?.totalDocuments ?? 0;
-    final errorRate = _metrics?.errorRate ?? 0.0;
-
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: LiquidTheme.glassBg,
-            border: Border(bottom: BorderSide(color: LiquidTheme.glassBorder)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: LiquidTheme.neonCyan.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: LiquidTheme.neonGlow(LiquidTheme.neonCyan, intensity: 0.3),
-                ),
-                child: const Icon(Iconsax.cpu, color: LiquidTheme.neonCyan, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('FINSIGHT', style: LiquidTheme.monoData(size: 14, color: LiquidTheme.neonCyan, weight: FontWeight.bold)),
-                  Text('COMMAND CENTER', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
-                ],
-              ),
-              const Spacer(),
-              _MetricPill(label: 'DOCS', value: '$totalDocs', color: LiquidTheme.neonGreen),
-              const SizedBox(width: 8),
-              _MetricPill(label: 'ERR', value: '${(errorRate * 100).toStringAsFixed(1)}%', color: LiquidTheme.neonPink),
-              const SizedBox(width: 8),
-              _isOnline ? const _LiveIndicator() : _buildOfflineBadge(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOfflineBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: LiquidTheme.neonPink.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: LiquidTheme.neonPink.withOpacity(0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 6, height: 6, decoration: const BoxDecoration(color: LiquidTheme.neonPink, shape: BoxShape.circle)),
-          const SizedBox(width: 4),
-          Text('OFFLINE', style: LiquidTheme.monoData(size: 8, color: LiquidTheme.neonPink, weight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPipelineGauge() {
-    final totalDocs = _metrics?.totalDocuments ?? 0;
-    final corrections = _metrics?.totalCorrections ?? 0;
-    final processingTime = _metrics?.avgProcessingTime ?? 0.0;
-
-    return BreathingGlow(
-      glowColor: LiquidTheme.neonCyan,
-      child: LiquidGlassCard(
-        padding: const EdgeInsets.all(16),
-        glowColor: LiquidTheme.neonCyan,
+    return AmbientBackground(
+      child: SafeArea(
         child: Column(
           children: [
-            Row(
-              children: [
-                const Icon(Iconsax.activity, color: LiquidTheme.neonCyan, size: 14),
-                const SizedBox(width: 6),
-                Text('PIPELINE STATUS', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
-                const Spacer(),
-                _isOnline ? _PulsingDot(color: LiquidTheme.neonGreen) : const Icon(Iconsax.warning_2, color: LiquidTheme.neonPink, size: 12),
-              ],
-            ),
+            _buildHeader(),
             Expanded(
-              child: Center(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final gaugeSize = min(constraints.maxWidth, constraints.maxHeight) * 0.7;
-                    // Progress based on total documents (cap at 1000 for full gauge)
-                    final progress = (totalDocs / 1000).clamp(0.0, 1.0);
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: gaugeSize,
-                          height: gaugeSize,
-                          child: CustomPaint(painter: _GaugePainter(progress: 1.0, color: LiquidTheme.glassBorder, strokeWidth: 10)),
-                        ),
-                        SizedBox(
-                          width: gaugeSize,
-                          height: gaugeSize,
-                          child: CustomPaint(painter: _GaugePainter(progress: progress, color: LiquidTheme.neonCyan, strokeWidth: 10)),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
+              child: _isLoading 
+                  ? _buildLoadingState()
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      color: DS.primary,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(DS.space4),
+                        child: Column(
                           children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('$totalDocs', style: LiquidTheme.monoData(size: 36, color: LiquidTheme.neonCyan, weight: FontWeight.bold)),
-                            ),
-                            Text('documents', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
+                            _buildStatsRow(),
+                            const SizedBox(height: DS.space4),
+                            _buildBentoGrid(),
+                            const SizedBox(height: DS.space4),
+                            _buildTerminal(),
+                            const SizedBox(height: DS.space16),
                           ],
                         ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _MiniStat(label: 'CORRECTIONS', value: '$corrections', color: LiquidTheme.neonYellow),
-                _MiniStat(label: 'AVG TIME', value: '${processingTime.toStringAsFixed(1)}s', color: LiquidTheme.neonPink),
-              ],
+                      ),
+                    ),
             ),
           ],
         ),
@@ -298,57 +133,329 @@ class _CommandCenterDashboardState extends State<CommandCenterDashboard> {
     );
   }
 
-  Widget _buildErrorClustersCard() {
-    final clusters = _errorClusters?.clusters.entries.take(4).toList() ?? [];
-    final maxCount = clusters.isEmpty ? 1 : clusters.map((e) => e.value.count).reduce(max);
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(DS.space4, DS.space3, DS.space4, DS.space2),
+      child: Row(
+        children: [
+          // Logo
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: DS.primaryGradient,
+              borderRadius: BorderRadius.circular(DS.radiusMd),
+              boxShadow: DS.glow(DS.primary, intensity: 0.25),
+            ),
+            child: const Icon(Iconsax.shield_tick, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: DS.space3),
+          
+          // Title
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('FINSIGHT', style: DS.heading3()),
+              Text('Command Center', style: DS.caption()),
+            ],
+          ),
+          
+          const Spacer(),
+          
+          // Stats Pills
+          _HeaderPill(
+            label: 'DOCS',
+            value: '${_metrics?.totalDocuments ?? 0}',
+            color: DS.primary,
+          ),
+          const SizedBox(width: DS.space2),
+          _HeaderPill(
+            label: 'ERR',
+            value: '${((_metrics?.errorRate ?? 0) * 100).toStringAsFixed(1)}%',
+            color: DS.error,
+          ),
+          const SizedBox(width: DS.space3),
+          
+          // Status
+          StatusBadge(
+            label: _isOnline ? 'LIVE' : 'OFFLINE',
+            color: _isOnline ? DS.success : DS.error,
+            pulse: _isOnline,
+          ),
+        ],
+      ),
+    );
+  }
 
-    return LiquidGlassCard(
-      padding: const EdgeInsets.all(12),
-      glowColor: LiquidTheme.neonPink,
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (_, __) => Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: DS.primary.withOpacity(0.3 + _pulseController.value * 0.4),
+                  width: 2,
+                ),
+                boxShadow: DS.glow(DS.primary, intensity: _pulseController.value * 0.4),
+              ),
+              child: Icon(
+                Iconsax.cpu,
+                color: DS.primary.withOpacity(0.5 + _pulseController.value * 0.5),
+                size: 32,
+              ),
+            ),
+          ),
+          const SizedBox(height: DS.space6),
+          Text('Connecting to backend...', style: DS.body(color: DS.textMuted)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow() {
+    final totalDocs = _metrics?.totalDocuments ?? 0;
+    final corrections = _metrics?.totalCorrections ?? 0;
+    final avgTime = _metrics?.avgProcessingTime ?? 0.0;
+    
+    return Row(
+      children: [
+        Expanded(
+          child: FadeInLeft(
+            duration: const Duration(milliseconds: 600),
+            child: _MetricCard(
+              icon: Iconsax.document,
+              label: 'Documents',
+              value: '$totalDocs',
+              color: DS.primary,
+            ),
+          ),
+        ),
+        const SizedBox(width: DS.space3),
+        Expanded(
+          child: FadeInUp(
+            duration: const Duration(milliseconds: 600),
+            delay: const Duration(milliseconds: 100),
+            child: _MetricCard(
+              icon: Iconsax.edit,
+              label: 'Corrections',
+              value: '$corrections',
+              color: DS.accent,
+            ),
+          ),
+        ),
+        const SizedBox(width: DS.space3),
+        Expanded(
+          child: FadeInRight(
+            duration: const Duration(milliseconds: 600),
+            delay: const Duration(milliseconds: 200),
+            child: _MetricCard(
+              icon: Iconsax.timer_1,
+              label: 'Avg Time',
+              value: '${avgTime.toStringAsFixed(1)}s',
+              color: DS.success,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBentoGrid() {
+    return Column(
+      children: [
+        // Top row: Pipeline + Errors
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: FadeInUp(
+                duration: const Duration(milliseconds: 600),
+                delay: const Duration(milliseconds: 300),
+                child: _buildPipelineCard(),
+              ),
+            ),
+            const SizedBox(width: DS.space3),
+            Expanded(
+              flex: 2,
+              child: FadeInUp(
+                duration: const Duration(milliseconds: 600),
+                delay: const Duration(milliseconds: 400),
+                child: _buildErrorsCard(),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: DS.space3),
+        
+        // Middle row: Actions + Accuracy
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: FadeInUp(
+                duration: const Duration(milliseconds: 600),
+                delay: const Duration(milliseconds: 500),
+                child: _buildActionsCard(),
+              ),
+            ),
+            const SizedBox(width: DS.space3),
+            Expanded(
+              child: FadeInUp(
+                duration: const Duration(milliseconds: 600),
+                delay: const Duration(milliseconds: 600),
+                child: _buildAccuracyCard(),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPipelineCard() {
+    final totalDocs = _metrics?.totalDocuments ?? 0;
+    final corrections = _metrics?.totalCorrections ?? 0;
+    final avgTime = _metrics?.avgProcessingTime ?? 0.0;
+    
+    return GlassCard(
+      padding: const EdgeInsets.all(DS.space5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Iconsax.warning_2, color: LiquidTheme.neonPink, size: 12),
-              const SizedBox(width: 6),
-              Text('ERROR CLUSTERS', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
+              Icon(Iconsax.activity, color: DS.primary, size: 18),
+              const SizedBox(width: DS.space2),
+              Text('PIPELINE STATUS', style: DS.label()),
               const Spacer(),
-              Text('${_errorClusters?.totalCorrections ?? 0}', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.neonPink, weight: FontWeight.bold)),
+              _PulseDot(color: DS.success),
             ],
           ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: clusters.isEmpty
-                ? Center(child: Text('No errors yet', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)))
-                : ListView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: min(clusters.length, 4),
-                    itemBuilder: (context, index) {
-                      final entry = clusters[index];
-                      final percentage = entry.value.count / maxCount;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Flexible(child: Text(entry.key, style: LiquidTheme.monoData(size: 8, color: LiquidTheme.textSecondary), overflow: TextOverflow.ellipsis)),
-                                Text('${entry.value.count}', style: LiquidTheme.monoData(size: 8, color: LiquidTheme.neonPink, weight: FontWeight.bold)),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(2),
-                              child: LinearProgressIndicator(value: percentage, backgroundColor: LiquidTheme.glassBorder, valueColor: const AlwaysStoppedAnimation(LiquidTheme.neonPink), minHeight: 3),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+          const SizedBox(height: DS.space6),
+          
+          // Central gauge
+          Center(
+            child: _ProgressRing(
+              value: totalDocs > 0 ? 1.0 : 0.0,
+              size: 140,
+              strokeWidth: 12,
+              color: DS.primary,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('$totalDocs', style: DS.stat(color: DS.primary)),
+                  Text('documents', style: DS.caption()),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: DS.space6),
+          
+          // Stats row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _MiniStat(label: 'CORRECTIONS', value: '$corrections', color: DS.accent),
+              Container(width: 1, height: 32, color: DS.border),
+              _MiniStat(label: 'AVG TIME', value: '${avgTime.toStringAsFixed(1)}s', color: DS.success),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorsCard() {
+    final clusters = _errorClusters?.clusters.entries.toList() ?? <MapEntry<String, ClusterData>>[];
+    
+    return GlassCard(
+      padding: const EdgeInsets.all(DS.space5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Iconsax.warning_2, color: DS.error, size: 18),
+              const SizedBox(width: DS.space2),
+              Text('ERROR CLUSTERS', style: DS.label()),
+              const Spacer(),
+              Text('${_errorClusters?.clusters.length ?? 0}', style: DS.mono(color: DS.error)),
+            ],
+          ),
+          const SizedBox(height: DS.space4),
+          
+          if (clusters.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: DS.space8),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Iconsax.tick_circle, color: DS.success.withOpacity(0.5), size: 32),
+                    const SizedBox(height: DS.space2),
+                    Text('No errors yet', style: DS.bodySmall()),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...clusters.take(4).map((entry) => Padding(
+              padding: const EdgeInsets.only(bottom: DS.space2),
+              child: _ErrorClusterItem(
+                field: entry.key,
+                count: entry.value.count,
+                percentage: 0.0,
+              ),
+            )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionsCard() {
+    final navProvider = context.read<NavigationProvider>();
+    
+    return GlassCard(
+      padding: const EdgeInsets.all(DS.space5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Iconsax.flash_1, color: DS.accent, size: 18),
+              const SizedBox(width: DS.space2),
+              Text('QUICK ACTIONS', style: DS.label()),
+            ],
+          ),
+          const SizedBox(height: DS.space4),
+          
+          _ActionButton(
+            icon: Iconsax.document_upload,
+            label: 'Upload',
+            color: DS.primary,
+            onTap: () => navProvider.setIndex(1),
+          ),
+          const SizedBox(height: DS.space2),
+          _ActionButton(
+            icon: Iconsax.edit_2,
+            label: 'Review',
+            color: DS.accent,
+            onTap: () => navProvider.setIndex(2),
+          ),
+          const SizedBox(height: DS.space2),
+          _ActionButton(
+            icon: Iconsax.search_normal,
+            label: 'Inspect',
+            color: DS.success,
+            onTap: () => navProvider.setIndex(3),
           ),
         ],
       ),
@@ -356,270 +463,296 @@ class _CommandCenterDashboardState extends State<CommandCenterDashboard> {
   }
 
   Widget _buildAccuracyCard() {
-    final types = _metrics?.accuracyByType.entries.take(4).toList() ?? [];
-
-    return LiquidGlassCard(
-      padding: const EdgeInsets.all(12),
-      glowColor: LiquidTheme.neonGreen,
+    final accuracies = _metrics?.accuracyByType.entries.toList() ?? <MapEntry<String, TypeAccuracy>>[];
+    
+    return GlassCard(
+      padding: const EdgeInsets.all(DS.space5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Iconsax.chart_2, color: LiquidTheme.neonGreen, size: 12),
-              const SizedBox(width: 6),
-              Text('ACCURACY BY TYPE', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
+              Icon(Iconsax.chart_1, color: DS.success, size: 18),
+              const SizedBox(width: DS.space2),
+              Text('ACCURACY BY TYPE', style: DS.label()),
             ],
           ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: types.isEmpty
-                ? Center(child: Text('No data yet', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)))
-                : Row(
-                    children: types.map((entry) {
-                      final color = entry.value.accuracy > 0.93 ? LiquidTheme.neonGreen : 
-                                    entry.value.accuracy > 0.85 ? LiquidTheme.neonYellow : LiquidTheme.neonPink;
-                      return Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            FittedBox(child: Text('${(entry.value.accuracy * 100).toInt()}%', style: LiquidTheme.monoData(size: 10, color: color, weight: FontWeight.bold))),
-                            const SizedBox(height: 4),
-                            Expanded(
-                              child: Container(
-                                width: 24,
-                                margin: const EdgeInsets.symmetric(horizontal: 2),
-                                decoration: BoxDecoration(color: LiquidTheme.glassBorder, borderRadius: BorderRadius.circular(3)),
-                                child: FractionallySizedBox(
-                                  alignment: Alignment.bottomCenter,
-                                  heightFactor: entry.value.accuracy,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      borderRadius: BorderRadius.circular(3),
-                                      boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 6)],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(entry.key.substring(0, min(3, entry.key.length)).toUpperCase(), style: LiquidTheme.monoData(size: 7, color: LiquidTheme.textMuted)),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-          ),
+          const SizedBox(height: DS.space4),
+          
+          if (accuracies.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: DS.space4),
+              child: Center(
+                child: Text('Upload documents to see accuracy', 
+                    style: DS.bodySmall()),
+              ),
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: accuracies.take(3).map((entry) => _AccuracyGauge(
+                label: entry.key.substring(0, entry.key.length < 3 ? entry.key.length : 3).toUpperCase(),
+                value: entry.value.accuracy / 100,
+                color: _getAccuracyColor(entry.value.accuracy),
+              )).toList(),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildRecentIngestion() {
-    // For now, show placeholder until we add recent docs API
-    return LiquidGlassCard(
-      padding: const EdgeInsets.all(12),
+  Color _getAccuracyColor(double accuracy) {
+    if (accuracy >= 90) return DS.success;
+    if (accuracy >= 75) return DS.warning;
+    return DS.error;
+  }
+
+  Widget _buildTerminal() {
+    return GlassCard(
+      padding: const EdgeInsets.all(DS.space4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Iconsax.document, color: LiquidTheme.neonCyan, size: 12),
-              const SizedBox(width: 6),
-              Text('RECENT', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Iconsax.document_upload, size: 24, color: LiquidTheme.textMuted.withOpacity(0.5)),
-                  const SizedBox(height: 8),
-                  Text('Upload documents', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
-                  Text('to see activity', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return LiquidGlassCard(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('ACTIONS', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
-          const SizedBox(height: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          GestureDetector(
+            onTap: () => setState(() => _terminalExpanded = !_terminalExpanded),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
               children: [
-                _ActionButton(icon: Iconsax.document_upload, label: 'UPLOAD', color: LiquidTheme.neonCyan, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BulkIngestionScreen()))),
-                _ActionButton(icon: Iconsax.edit_2, label: 'REVIEW', color: LiquidTheme.neonPink, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReviewScreen()))),
-                _ActionButton(icon: Iconsax.scan, label: 'INSPECT', color: LiquidTheme.neonGreen, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DocInspectorScreen()))),
+                Icon(Iconsax.code, color: DS.textMuted, size: 16),
+                const SizedBox(width: DS.space2),
+                Text('SYSTEM TERMINAL', style: DS.label()),
+                const SizedBox(width: DS.space2),
+                _PulseDot(color: _isOnline ? DS.success : DS.textMuted),
+                const SizedBox(width: DS.space2),
+                Text(_isOnline ? 'LIVE API' : 'OFFLINE', 
+                    style: DS.caption(color: _isOnline ? DS.success : DS.textMuted)),
+                const Spacer(),
+                Text('${_logs.length} events', style: DS.caption()),
+                const SizedBox(width: DS.space2),
+                Icon(
+                  _terminalExpanded ? Iconsax.arrow_up_2 : Iconsax.arrow_down_1,
+                  color: DS.textMuted,
+                  size: 16,
+                ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBrainVisualization() {
-    final totalDocs = _metrics?.totalDocuments ?? 0;
-    final nodeCount = totalDocs.clamp(5, 50); // Dynamic nodes based on docs
-
-    return LiquidGlassCard(
-      glowColor: LiquidTheme.neonCyan,
-      padding: EdgeInsets.zero,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: totalDocs > 0
-              ? CustomPaint(painter: _BrainNetworkPainter(nodeCount: nodeCount))
-              : const _WaitingForDataCore(),
-          ),
-          Positioned(
-            left: 14,
-            top: 14,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Iconsax.cpu, color: LiquidTheme.neonCyan, size: 14),
-                    const SizedBox(width: 6),
-                    Text('BACKBOARD', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.neonCyan, weight: FontWeight.bold)),
-                  ],
-                ),
-                Text('KNOWLEDGE GRAPH', style: LiquidTheme.monoData(size: 7, color: LiquidTheme.textMuted)),
-              ],
-            ),
-          ),
-          if (totalDocs > 0)
-            Positioned(
-              right: 14,
-              bottom: 14,
-              child: Tooltip(
-                message: 'Visualizing $totalDocs Vectors in Backboard RAG',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    FittedBox(child: Text('$totalDocs', style: LiquidTheme.monoData(size: 20, color: LiquidTheme.neonCyan, weight: FontWeight.bold))),
-                    Text('VECTORS', style: LiquidTheme.monoData(size: 7, color: LiquidTheme.textMuted)),
-                    const SizedBox(height: 6),
-                    FittedBox(child: Text('${_errorClusters?.totalCorrections ?? 0}', style: LiquidTheme.monoData(size: 14, color: LiquidTheme.neonGreen, weight: FontWeight.bold))),
-                    Text('LEARNED', style: LiquidTheme.monoData(size: 7, color: LiquidTheme.textMuted)),
-                  ],
-                ),
+          
+          if (_terminalExpanded) ...[
+            const SizedBox(height: DS.space3),
+            Container(
+              height: 200,
+              padding: const EdgeInsets.all(DS.space3),
+              decoration: BoxDecoration(
+                color: DS.background,
+                borderRadius: BorderRadius.circular(DS.radiusMd),
+                border: Border.all(color: DS.border),
+              ),
+              child: ListView.builder(
+                reverse: true,
+                itemCount: _logs.length,
+                itemBuilder: (_, i) {
+                  final log = _logs[_logs.length - 1 - i];
+                  final isError = log.contains('[ERROR]') || log.contains('failed');
+                  final isSuccess = log.contains('Success') || log.contains('success');
+                  
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      log,
+                      style: DS.mono(
+                        size: 11,
+                        color: isError ? DS.error 
+                             : isSuccess ? DS.success 
+                             : DS.textSecondary,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
+          ],
         ],
       ),
     );
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // HELPER WIDGETS
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
-class _MetricPill extends StatelessWidget {
-  final String label, value;
+class _HeaderPill extends StatelessWidget {
+  final String label;
+  final String value;
   final Color color;
 
-  const _MetricPill({required this.label, required this.value, required this.color});
+  const _HeaderPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: DS.space3, vertical: DS.space1),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(DS.radiusFull),
+        border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: LiquidTheme.monoData(size: 7, color: LiquidTheme.textMuted)),
-          const SizedBox(width: 4),
-          Text(value, style: LiquidTheme.monoData(size: 9, color: color, weight: FontWeight.bold)),
+          Text(label, style: DS.caption(color: color)),
+          const SizedBox(width: DS.space1),
+          Text(value, style: DS.mono(size: 11, color: color, weight: FontWeight.bold)),
         ],
       ),
     );
   }
 }
 
-class _LiveIndicator extends StatefulWidget {
-  const _LiveIndicator();
+class _MetricCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
 
-  @override
-  State<_LiveIndicator> createState() => _LiveIndicatorState();
-}
-
-class _LiveIndicatorState extends State<_LiveIndicator> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const _MetricCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, __) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: LiquidTheme.neonGreen.withOpacity(0.1 + _controller.value * 0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: LiquidTheme.neonGreen.withOpacity(0.3 + _controller.value * 0.2)),
-          boxShadow: [BoxShadow(color: LiquidTheme.neonGreen.withOpacity(_controller.value * 0.3), blurRadius: 8)],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 6, height: 6, decoration: const BoxDecoration(color: LiquidTheme.neonGreen, shape: BoxShape.circle)),
-            const SizedBox(width: 4),
-            Text('LIVE', style: LiquidTheme.monoData(size: 8, color: LiquidTheme.neonGreen, weight: FontWeight.bold)),
-          ],
-        ),
+    return GlassCard(
+      accentColor: color,
+      padding: const EdgeInsets.all(DS.space4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(DS.radiusSm),
+                ),
+                child: Icon(icon, size: 14, color: color),
+              ),
+              const Spacer(),
+              Text(value, style: DS.heading2(color: color)),
+            ],
+          ),
+          const SizedBox(height: DS.space2),
+          Text(label, style: DS.caption()),
+        ],
       ),
     );
   }
 }
 
-class _PulsingDot extends StatefulWidget {
+class _MiniStat extends StatelessWidget {
+  final String label;
+  final String value;
   final Color color;
-  const _PulsingDot({required this.color});
+
+  const _MiniStat({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
-  State<_PulsingDot> createState() => _PulsingDotState();
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(value, style: DS.heading3(color: color)),
+        const SizedBox(height: 2),
+        Text(label, style: DS.caption()),
+      ],
+    );
+  }
 }
 
-class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
+class _ProgressRing extends StatelessWidget {
+  final double value;
+  final double size;
+  final double strokeWidth;
+  final Color color;
+  final Widget child;
+
+  const _ProgressRing({
+    required this.value,
+    required this.size,
+    required this.strokeWidth,
+    required this.color,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background ring
+          SizedBox.expand(
+            child: CircularProgressIndicator(
+              value: 1,
+              strokeWidth: strokeWidth,
+              backgroundColor: color.withOpacity(0.1),
+              color: Colors.transparent,
+            ),
+          ),
+          // Progress ring
+          SizedBox.expand(
+            child: TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOutCubic,
+              tween: Tween(begin: 0, end: value),
+              builder: (_, v, __) => CircularProgressIndicator(
+                value: v,
+                strokeWidth: strokeWidth,
+                backgroundColor: Colors.transparent,
+                color: color,
+                strokeCap: StrokeCap.round,
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _PulseDot extends StatefulWidget {
+  final Color color;
+  
+  const _PulseDot({required this.color});
+
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..repeat(reverse: true);
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
   }
 
   @override
@@ -636,28 +769,50 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
         width: 6,
         height: 6,
         decoration: BoxDecoration(
-          color: widget.color.withOpacity(0.5 + _controller.value * 0.5),
+          color: widget.color,
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: widget.color.withOpacity(_controller.value * 0.5), blurRadius: 6)],
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(0.4 + _controller.value * 0.4),
+              blurRadius: 4 + _controller.value * 4,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _MiniStat extends StatelessWidget {
-  final String label, value;
-  final Color color;
+class _ErrorClusterItem extends StatelessWidget {
+  final String field;
+  final int count;
+  final double percentage;
 
-  const _MiniStat({required this.label, required this.value, required this.color});
+  const _ErrorClusterItem({
+    required this.field,
+    required this.count,
+    required this.percentage,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        FittedBox(child: Text(value, style: LiquidTheme.monoData(size: 14, color: color, weight: FontWeight.bold))),
-        Text(label, style: LiquidTheme.monoData(size: 7, color: LiquidTheme.textMuted)),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: DS.space3, vertical: DS.space2),
+      decoration: BoxDecoration(
+        color: DS.error.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(DS.radiusSm),
+        border: Border.all(color: DS.error.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(field, style: DS.bodySmall()),
+          ),
+          Text('$count', style: DS.mono(size: 11, color: DS.error)),
+          const SizedBox(width: DS.space2),
+          Text('${percentage.toStringAsFixed(0)}%', style: DS.caption(color: DS.error)),
+        ],
+      ),
     );
   }
 }
@@ -668,7 +823,12 @@ class _ActionButton extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _ActionButton({required this.icon, required this.label, required this.color, required this.onTap});
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -676,23 +836,24 @@ class _ActionButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          HapticFeedback.mediumImpact();
+          HapticFeedback.lightImpact();
           onTap();
         },
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(DS.radiusMd),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: DS.space4, vertical: DS.space3),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withOpacity(0.3)),
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(DS.radiusMd),
+            border: Border.all(color: color.withOpacity(0.15)),
           ),
           child: Row(
             children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(width: 8),
-              Expanded(child: Text(label, style: LiquidTheme.monoData(size: 9, color: color, weight: FontWeight.bold))),
-              Icon(Icons.arrow_forward_ios, color: color.withOpacity(0.5), size: 10),
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: DS.space3),
+              Text(label.toUpperCase(), style: DS.label(color: color)),
+              const Spacer(),
+              Icon(Iconsax.arrow_right_3, size: 14, color: color.withOpacity(0.5)),
             ],
           ),
         ),
@@ -701,125 +862,44 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-class _GaugePainter extends CustomPainter {
-  final double progress;
+class _AccuracyGauge extends StatelessWidget {
+  final String label;
+  final double value;
   final Color color;
-  final double strokeWidth;
 
-  _GaugePainter({required this.progress, required this.color, required this.strokeWidth});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - strokeWidth) / 2;
-
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    const startAngle = 135 * (pi / 180);
-    final sweepAngle = 270 * (pi / 180) * progress;
-
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), startAngle, sweepAngle, false, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _GaugePainter oldDelegate) => oldDelegate.progress != progress;
-}
-
-class _BrainNetworkPainter extends CustomPainter {
-  final int nodeCount;
-  
-  _BrainNetworkPainter({this.nodeCount = 25});
-  
-  @override
-  void paint(Canvas canvas, Size size) {
-    final random = Random(42);
-    final nodes = <Offset>[];
-    
-    for (int i = 0; i < nodeCount; i++) {
-      nodes.add(Offset(random.nextDouble() * size.width, random.nextDouble() * size.height));
-    }
-
-    final linePaint = Paint()..color = LiquidTheme.neonCyan.withOpacity(0.08)..strokeWidth = 1;
-
-    for (int i = 0; i < nodes.length; i++) {
-      for (int j = i + 1; j < nodes.length; j++) {
-        final dx = nodes[i].dx - nodes[j].dx;
-        final dy = nodes[i].dy - nodes[j].dy;
-        if (sqrt(dx * dx + dy * dy) < 120) {
-          canvas.drawLine(nodes[i], nodes[j], linePaint);
-        }
-      }
-    }
-
-    final nodePaint = Paint()..color = LiquidTheme.neonCyan.withOpacity(0.4);
-    for (var node in nodes) {
-      canvas.drawCircle(node, 2.5, nodePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BrainNetworkPainter oldDelegate) => oldDelegate.nodeCount != nodeCount;
-}
-
-class _WaitingForDataCore extends StatefulWidget {
-  const _WaitingForDataCore();
-
-  @override
-  State<_WaitingForDataCore> createState() => _WaitingForDataCoreState();
-}
-
-class _WaitingForDataCoreState extends State<_WaitingForDataCore> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const _AccuracyGauge({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, __) => Center(
-        child: Container(
-          width: 80 + _controller.value * 20,
-          height: 80 + _controller.value * 20,
+    return Column(
+      children: [
+        Text('${(value * 100).toInt()}%', style: DS.heading3(color: color)),
+        const SizedBox(height: DS.space1),
+        Container(
+          width: 48,
+          height: 4,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: LiquidTheme.neonCyan.withOpacity(0.2 + _controller.value * 0.3),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: LiquidTheme.neonCyan.withOpacity(_controller.value * 0.3),
-                blurRadius: 20 + _controller.value * 10,
-                spreadRadius: 5,
-              ),
-            ],
+            color: color.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(2),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Iconsax.cpu, color: LiquidTheme.neonCyan.withOpacity(0.5 + _controller.value * 0.5), size: 24),
-              const SizedBox(height: 4),
-              Text('AWAITING', style: LiquidTheme.monoData(size: 7, color: LiquidTheme.neonCyan.withOpacity(0.5 + _controller.value * 0.5))),
-              Text('DATA...', style: LiquidTheme.monoData(size: 7, color: LiquidTheme.neonCyan.withOpacity(0.5 + _controller.value * 0.5))),
-            ],
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: value,
+            child: Container(
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: DS.space1),
+        Text(label, style: DS.caption()),
+      ],
     );
   }
 }

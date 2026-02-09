@@ -145,10 +145,6 @@ class EnterpriseDashboard extends StatelessWidget {
 
     return _TerminalCard(
       title: 'RECENT INGESTION',
-      action: TextButton(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DocInspectorScreen())),
-        child: Text('INSPECT →', style: GoogleFonts.jetBrainsMono(color: AppColors.primary, fontSize: 11)),
-      ),
       child: Table(
         columnWidths: const {
           0: FlexColumnWidth(1.2),

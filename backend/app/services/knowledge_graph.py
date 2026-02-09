@@ -1,0 +1,228 @@
+"""
+FinShield - Knowledge Graph Service
+
+Canonical JSON knowledge graph schema and in-memory storage.
+
+This module defines a generic, Backboard-friendly knowledge graph
+representation for financial documents and a simple in-memory store.
+
+Nodes:
+    - Document
+    - Account
+    - Bank
+    - Employer
+    - Counterparty
+    - Invoice
+    - Payslip
+    - Transaction
+
+Edges:
+    - HAS_ACCOUNT
+    - EMPLOYED_BY
+    - PAYS
+    - DERIVED_FROM
+    - CROSS_CHECKED_WITH
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+
+from pydantic import BaseModel, Field
+
+
+class KGNode(BaseModel):
+    """
+    Generic knowledge graph node.
+
+    This keeps the schema flexible while still being explicit about
+    core node types via the ``type`` field.
+    """
+
+    id: str = Field(..., description="Stable node identifier")
+    type: str = Field(
+        ...,
+        description=(
+            "Node type, e.g. Document, Account, Bank, Employer, "
+            "Counterparty, Invoice, Payslip, Transaction"
+        ),
+    )
+    properties: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Arbitrary structured attributes for this node",
+    )
+
+
+class KGEdge(BaseModel):
+    """Directed relationship between two nodes."""
+
+    id: str = Field(..., description="Stable edge identifier")
+    type: str = Field(
+        ...,
+        description=(
+            "Edge type, e.g. HAS_ACCOUNT, EMPLOYED_BY, PAYS, "
+            "DERIVED_FROM, CROSS_CHECKED_WITH"
+        ),
+    )
+    source_id: str = Field(..., description="Source node id")
+    target_id: str = Field(..., description="Target node id")
+    properties: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata for the relationship",
+    )
+
+
+class DocumentKnowledgeGraph(BaseModel):
+    """
+    Knowledge graph slice anchored on a single document.
+
+    This is the main JSON object exposed to the Reviewer UI and
+    dashboards for a given document.
+    """
+
+    document_id: str = Field(..., description="Primary document identifier")
+    nodes: List[KGNode] = Field(
+        default_factory=list,
+        description="All nodes associated with this document",
+    )
+    edges: List[KGEdge] = Field(
+        default_factory=list,
+        description="Relationships between nodes in this slice",
+    )
+
+
+@dataclass
+class InMemoryKnowledgeGraphStore:
+    """
+    Simple in-memory knowledge graph store.
+
+    This is the default implementation for local development and
+    testing. In production, this can be replaced by a Postgres
+    (JSONB) or graph database-backed implementation while keeping
+    the same public interface.
+    """
+
+    _documents: Dict[str, DocumentKnowledgeGraph] = field(default_factory=dict)
+
+    # ------------------------------------------------------------------
+    # Core CRUD
+    # ------------------------------------------------------------------
+    def upsert_document_graph(self, graph: DocumentKnowledgeGraph) -> None:
+        """Create or replace the knowledge graph slice for a document."""
+        self._documents[graph.document_id] = graph
+
+    def get_document_graph(self, document_id: str) -> Optional[DocumentKnowledgeGraph]:
+        """Return the knowledge graph slice for a document, if any."""
+        return self._documents.get(document_id)
+
+    def link_documents(
+        self,
+        source_document_id: str,
+        target_document_id: str,
+        edge_type: str = "CROSS_CHECKED_WITH",
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Create a cross-document relationship between two document nodes.
+
+        If the corresponding document graphs do not yet exist, this
+        is a no-op; callers should ensure graphs are created first.
+        """
+        src_graph = self._documents.get(source_document_id)
+        tgt_graph = self._documents.get(target_document_id)
+        if not src_graph or not tgt_graph:
+            return
+
+        # Look up or create document nodes
+        def _ensure_doc_node(graph: DocumentKnowledgeGraph) -> KGNode:
+            for n in graph.nodes:
+                if n.type == "Document" and n.id == graph.document_id:
+                    return n
+            node = KGNode(
+                id=graph.document_id,
+                type="Document",
+                properties={},
+            )
+            graph.nodes.append(node)
+            return node
+
+        src_node = _ensure_doc_node(src_graph)
+        tgt_node = _ensure_doc_node(tgt_graph)
+
+        edge = KGEdge(
+            id=f"{src_node.id}->{tgt_node.id}:{edge_type}",
+            type=edge_type,
+            source_id=src_node.id,
+            target_id=tgt_node.id,
+            properties=properties or {},
+        )
+        src_graph.edges.append(edge)
+
+    # ------------------------------------------------------------------
+    # Query helpers for dashboards / UI
+    # ------------------------------------------------------------------
+    def search_entities(
+        self,
+        entity_type: Optional[str] = None,
+        query: Optional[str] = None,
+    ) -> List[KGNode]:
+        """
+        Naive in-memory entity search.
+
+        Args:
+            entity_type: Optional node type filter, e.g. 'Account' or 'Employer'
+            query: Optional substring match across string properties
+        """
+        results: List[KGNode] = []
+        for graph in self._documents.values():
+            for node in graph.nodes:
+                if entity_type and node.type != entity_type:
+                    continue
+                if not query:
+                    results.append(node)
+                    continue
+                # Simple substring match in any string property
+                for value in node.properties.values():
+                    if isinstance(value, str) and query.lower() in value.lower():
+                        results.append(node)
+                        break
+        return results
+
+    def graph_overview(self) -> Dict[str, Any]:
+        """
+        Aggregate statistics for dashboards.
+
+        Returns counts by node/edge type and total documents tracked.
+        """
+        node_counts: Dict[str, int] = {}
+        edge_counts: Dict[str, int] = {}
+
+        for graph in self._documents.values():
+            for node in graph.nodes:
+                node_counts[node.type] = node_counts.get(node.type, 0) + 1
+            for edge in graph.edges:
+                edge_counts[edge.type] = edge_counts.get(edge.type, 0) + 1
+
+        return {
+            "total_documents": len(self._documents),
+            "node_counts": node_counts,
+            "edge_counts": edge_counts,
+        }
+
+
+_knowledge_store: Optional[InMemoryKnowledgeGraphStore] = None
+
+
+def get_knowledge_store() -> InMemoryKnowledgeGraphStore:
+    """
+    Return the process-wide knowledge graph store.
+
+    In production this can be swapped for a database-backed
+    implementation while preserving the public interface.
+    """
+    global _knowledge_store
+    if _knowledge_store is None:
+        _knowledge_store = InMemoryKnowledgeGraphStore()
+    return _knowledge_store
+

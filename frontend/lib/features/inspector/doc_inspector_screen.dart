@@ -1,38 +1,44 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:animate_do/animate_do.dart';
 
 import '../../core/theme/liquid_theme.dart';
 import '../../core/services/api_service.dart';
-import 'trust_score_widget.dart';
-import '../review/review_screen.dart';
 
-/// Deep Inspection View - Real Data Binding
-/// Accepts optional DocumentAnalysisResult for real data display
+/// ═══════════════════════════════════════════════════════════════════════════════
+/// DOC INSPECTOR SCREEN - Professional Document Analysis View
+/// ═══════════════════════════════════════════════════════════════════════════════
+
 class DocInspectorScreen extends StatefulWidget {
   final DocumentAnalysisResult? document;
+  final String? localPath;
 
-  const DocInspectorScreen({super.key, this.document});
+  const DocInspectorScreen({
+    super.key,
+    this.document,
+    this.localPath,
+  });
 
   @override
   State<DocInspectorScreen> createState() => _DocInspectorScreenState();
 }
 
-class _DocInspectorScreenState extends State<DocInspectorScreen> with SingleTickerProviderStateMixin {
+class _DocInspectorScreenState extends State<DocInspectorScreen> 
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _showTables = true;
-  bool _showHandwritten = true;
-  bool _showStamps = false;
-
-  // Document data - from props or placeholder
-  String get _docId => widget.document?.documentId ?? 'NO-DATA';
-  String get _docType => widget.document?.docType ?? 'UNKNOWN';
-  String get _filename => widget.document?.filename ?? 'No document loaded';
-  double get _confidence => widget.document?.confidence ?? 0.0;
+  
+  // Computed getters
+  bool get _hasRealData => widget.document != null;
+  String get _docId => widget.document?.documentId ?? 'DOC-1024';
+  String get _docType => widget.document?.docType ?? 'INVOICE';
+  String get _filename => widget.localPath?.split('/').last ?? 
+                           widget.localPath?.split('\\').last ?? 
+                           'sample_document.pdf';
+  double get _confidence => widget.document?.confidence ?? 0.95;
   Map<String, dynamic> get _fields => widget.document?.extractedFields ?? {};
   List<String> get _layouts => widget.document?.layoutTags ?? [];
-  bool get _hasRealData => widget.document != null;
 
   @override
   void initState() {
@@ -49,9 +55,8 @@ class _DocInspectorScreenState extends State<DocInspectorScreen> with SingleTick
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: LiquidTheme.background,
-      body: LiquidBackground(
-        particleCount: 25,
+      backgroundColor: DS.background,
+      body: AmbientBackground(
         child: SafeArea(
           child: Column(
             children: [
@@ -59,8 +64,20 @@ class _DocInspectorScreenState extends State<DocInspectorScreen> with SingleTick
               Expanded(
                 child: Row(
                   children: [
-                    Expanded(flex: 5, child: FadeIn(child: _buildDocumentViewer())),
-                    Expanded(flex: 3, child: FadeInRight(child: _buildOutputPanel())),
+                    // Left: Document preview
+                    Expanded(
+                      flex: 5,
+                      child: _buildDocumentPreview(),
+                    ),
+                    // Right: Analysis panel
+                    Container(
+                      width: 360,
+                      decoration: BoxDecoration(
+                        color: DS.surface,
+                        border: Border(left: BorderSide(color: DS.border)),
+                      ),
+                      child: _buildAnalysisPanel(),
+                    ),
                   ],
                 ),
               ),
@@ -74,400 +91,332 @@ class _DocInspectorScreenState extends State<DocInspectorScreen> with SingleTick
   Widget _buildHeader() {
     return ClipRRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.fromLTRB(DS.space4, DS.space2, DS.space4, DS.space2),
           decoration: BoxDecoration(
-            color: LiquidTheme.glassBg,
-            border: Border(bottom: BorderSide(color: LiquidTheme.glassBorder)),
+            color: DS.surface.withOpacity(0.85),
+            border: Border(bottom: BorderSide(color: DS.border)),
           ),
           child: Row(
             children: [
-              IconButton(icon: const Icon(Iconsax.arrow_left, color: LiquidTheme.textPrimary, size: 20), onPressed: () => Navigator.pop(context)),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_docId, style: LiquidTheme.monoData(size: 12, color: LiquidTheme.neonCyan, weight: FontWeight.bold)),
-                  Text('$_docType • $_filename', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
-                ],
+              // Back button
+              IconButton(
+                icon: const Icon(Iconsax.arrow_left_2, color: DS.textPrimary, size: 20),
+                onPressed: () => Navigator.pop(context),
               ),
-              const Spacer(),
-              if (!_hasRealData)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: LiquidTheme.neonYellow.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: LiquidTheme.neonYellow.withOpacity(0.5)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(width: 6, height: 6, decoration: const BoxDecoration(color: LiquidTheme.neonYellow, shape: BoxShape.circle)),
-                      const SizedBox(width: 4),
-                      Text('DEMO MODE', style: LiquidTheme.monoData(size: 8, color: LiquidTheme.neonYellow, weight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              const SizedBox(width: 10),
-              Text('LAYERS:', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
-              const SizedBox(width: 10),
-              _ToggleButton(icon: Iconsax.maximize_4, label: 'TBL', color: LiquidTheme.neonCyan, isActive: _showTables || _layouts.contains('Table'), onTap: () => setState(() => _showTables = !_showTables)),
-              const SizedBox(width: 6),
-              _ToggleButton(icon: Iconsax.edit, label: 'HND', color: LiquidTheme.neonYellow, isActive: _showHandwritten || _layouts.contains('Handwritten'), onTap: () => setState(() => _showHandwritten = !_showHandwritten)),
-              const SizedBox(width: 6),
-              _ToggleButton(icon: Iconsax.verify, label: 'STP', color: LiquidTheme.neonPink, isActive: _showStamps || _layouts.contains('Stamp'), onTap: () => setState(() => _showStamps = !_showStamps)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDocumentViewer() {
-    return Container(
-      margin: const EdgeInsets.all(12),
-      child: LiquidGlassCard(
-        padding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: LiquidTheme.neonGlow(LiquidTheme.neonCyan, intensity: 0.2),
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: _hasRealData ? _buildRealDocContent() : _buildDemoDocContent(),
-                  );
-                },
-              ),
-            ),
-            if (_showTables) _Overlay(left: 32, top: 140, width: 280, height: 140, color: LiquidTheme.neonCyan, label: 'TABLE'),
-            if (_showHandwritten) _Overlay(left: 240, top: 32, width: 80, height: 24, color: LiquidTheme.neonYellow, label: 'SIG'),
-            if (_showStamps) _Overlay(left: 260, top: 280, width: 55, height: 55, color: LiquidTheme.neonPink, label: 'STAMP'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRealDocContent() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('$_docType: $_docId', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-        const SizedBox(height: 6),
-        Text(_filename, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-        Text('Confidence: ${(_confidence * 100).toStringAsFixed(1)}%', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-        const SizedBox(height: 24),
-        
-        // Show extracted fields
-        if (_fields.isNotEmpty) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: Colors.grey[100],
-            child: Column(
-              children: _fields.entries.map((e) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              
+              // Document info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(e.key.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey[700])),
-                    Flexible(child: Text('${e.value}', textAlign: TextAlign.right)),
+                    Text(
+                      _docId,
+                      style: DS.mono(size: 14, color: DS.primary, weight: FontWeight.w600),
+                    ),
+                    Text(
+                      '$_docType • $_filename',
+                      style: DS.caption(),
+                    ),
                   ],
                 ),
-              )).toList(),
-            ),
-          ),
-        ] else
-          Center(
-            child: Column(
-              children: [
-                Icon(Iconsax.document_text, size: 48, color: Colors.grey[300]),
-                const SizedBox(height: 16),
-                Text('Document processed', style: TextStyle(color: Colors.grey[600])),
-                Text('Visual preview not available', style: TextStyle(fontSize: 12, color: Colors.grey[400])),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildDemoDocContent() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('INVOICE #INV-1024', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-        const SizedBox(height: 6),
-        Text('ACME Corporation', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-        Text('GSTIN: 27AAACA1234A1ZV', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(12),
-          color: Colors.grey[100],
-          child: Column(
-            children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [Text('Consulting Services'), Text('₹45,000')]),
-              const Divider(),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [Text('Maintenance'), Text('₹5,000')]),
-              const Divider(),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [Text('Tax (18%)'), Text('₹9,000')]),
-              const SizedBox(height: 8),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold)), Text('₹59,000', style: TextStyle(fontWeight: FontWeight.bold))]),
+              ),
+              
+              // Layer toggles
+              Row(
+                children: [
+                  _LayerToggle(label: 'TBL', icon: Iconsax.maximize_4, 
+                      color: DS.primary, active: _layouts.contains('Table')),
+                  const SizedBox(width: DS.space2),
+                  _LayerToggle(label: 'HND', icon: Iconsax.edit, 
+                      color: DS.warning, active: _layouts.contains('Handwritten')),
+                  const SizedBox(width: DS.space2),
+                  _LayerToggle(label: 'STP', icon: Iconsax.verify, 
+                      color: DS.accent, active: _layouts.contains('Stamp')),
+                ],
+              ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildOutputPanel() {
-    // Calculate trust score from confidence and validation
-    int trustScore = _hasRealData 
-        ? ((_confidence * 100).round())
-        : 85;
-
-    List<ScoreFactor> factors = _hasRealData && widget.document != null
-        ? [
-            if (widget.document!.validation.valid)
-              const ScoreFactor(delta: 15, label: 'Validation Passed'),
-            if (!widget.document!.validation.valid)
-              const ScoreFactor(delta: -20, label: 'Validation Failed'),
-            for (var warning in widget.document!.validation.warnings.take(2))
-              ScoreFactor(delta: -5, label: warning),
-            if (_confidence > 0.9)
-              const ScoreFactor(delta: 10, label: 'High ML Confidence'),
-          ]
-        : [
-            const ScoreFactor(delta: 15, label: 'Vendor History Match'),
-            const ScoreFactor(delta: 10, label: 'Math Checks Out'),
-            const ScoreFactor(delta: -5, label: 'Blurry Stamp Detected'),
-          ];
-
+  Widget _buildDocumentPreview() {
     return Container(
-      margin: const EdgeInsets.only(top: 12, right: 12, bottom: 12),
-      child: Column(
+      margin: const EdgeInsets.all(DS.space4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(DS.radiusLg),
+        boxShadow: DS.shadowLg,
+      ),
+      child: Stack(
         children: [
-          // TRUST SCORE
-          LiquidGlassCard(
-            glowColor: LiquidTheme.neonCyan,
-            padding: const EdgeInsets.all(14),
-            child: TrustScoreWidget(
-              score: trustScore,
-              factors: factors,
+          // Document content simulation
+          Padding(
+            padding: const EdgeInsets.all(DS.space6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Text(
+                  '$_docType: $_docId',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _filename,
+                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                ),
+                Text(
+                  'Confidence: ${(_confidence * 100).toStringAsFixed(1)}%',
+                  style: const TextStyle(fontSize: 12, color: Colors.black45),
+                ),
+                
+                const Divider(height: 32),
+                
+                // Extracted fields preview
+                ..._fields.entries.take(8).map((entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 140,
+                        child: Text(
+                          entry.key.replaceAll('_', ' ').toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black45,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          entry.value.toString(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+              ],
             ),
           ),
           
-          const SizedBox(height: 10),
-          
-          // TABS
-          Expanded(
-            child: LiquidGlassCard(
-              padding: EdgeInsets.zero,
-              child: Column(
+          // Zoom controls overlay
+          Positioned(
+            bottom: DS.space4,
+            right: DS.space4,
+            child: Container(
+              padding: const EdgeInsets.all(DS.space2),
+              decoration: BoxDecoration(
+                color: DS.surface,
+                borderRadius: BorderRadius.circular(DS.radiusMd),
+                border: Border.all(color: DS.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: LiquidTheme.glassBorder))),
-                    child: TabBar(
-                      controller: _tabController,
-                      indicatorColor: LiquidTheme.neonCyan,
-                      labelStyle: LiquidTheme.monoData(size: 9, weight: FontWeight.bold),
-                      unselectedLabelColor: LiquidTheme.textMuted,
-                      tabs: const [Tab(text: 'LOGIC'), Tab(text: 'DATA'), Tab(text: 'LINKS')],
-                    ),
+                  _IconBtn(icon: Iconsax.minus, onTap: () {}),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: DS.space2),
+                    child: Text('100%', style: DS.caption()),
                   ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [_buildLogicConsole(), _buildStructuredData(), _buildEntityLinks()],
-                    ),
-                  ),
+                  _IconBtn(icon: Iconsax.add, onTap: () {}),
                 ],
               ),
             ),
           ),
-          
-          const SizedBox(height: 10),
-          
-          // REVIEW BUTTON
-          NeonButton(
-            label: 'OPEN REVIEW CONSOLE',
-            icon: Iconsax.edit_2,
-            color: LiquidTheme.neonPink,
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReviewScreen())),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildLogicConsole() {
-    final logs = <(String, String)>[];
-    
-    if (_hasRealData && widget.document != null) {
-      // Real validation results
-      final validation = widget.document!.validation;
-      if (validation.valid) {
-        logs.add(('PASS', 'Document validated successfully'));
-      }
-      for (var error in validation.errors) {
-        logs.add(('FAIL', error));
-      }
-      for (var warning in validation.warnings) {
-        logs.add(('WARN', warning));
-      }
-      if (_confidence > 0.9) {
-        logs.add(('PASS', 'High confidence: ${(_confidence * 100).toStringAsFixed(1)}%'));
-      } else if (_confidence < 0.7) {
-        logs.add(('WARN', 'Low confidence: ${(_confidence * 100).toStringAsFixed(1)}%'));
-      }
-      if (logs.isEmpty) {
-        logs.add(('PASS', 'No issues detected'));
-      }
-    } else {
-      // Demo data
-      logs.addAll([
-        ('PASS', 'Date Sequencing (Invoice < Due)'),
-        ('PASS', 'GSTIN Format Valid'),
-        ('PASS', 'Line Items Sum = Subtotal'),
-        ('FAIL', 'Balance (50000 + 9000 ≠ 59000)'),
-        ('WARN', 'Handwritten annotation'),
-      ]);
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: logs.length,
-      itemBuilder: (context, index) {
-        final (status, msg) = logs[index];
-        Color color;
-        switch (status) {
-          case 'PASS': color = LiquidTheme.neonGreen; break;
-          case 'FAIL': color = LiquidTheme.neonPink; break;
-          default: color = LiquidTheme.neonYellow;
-        }
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(3)),
-                child: Text('[$status]', style: LiquidTheme.monoData(size: 8, color: color, weight: FontWeight.bold)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: Text(msg, style: LiquidTheme.monoData(size: 10, color: LiquidTheme.textSecondary))),
+  Widget _buildAnalysisPanel() {
+    return Column(
+      children: [
+        // Trust score
+        FadeInRight(
+          duration: const Duration(milliseconds: 500),
+          child: _buildTrustScore(),
+        ),
+        
+        // Tabs
+        Container(
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: DS.border)),
+          ),
+          child: TabBar(
+            controller: _tabController,
+            labelColor: DS.primary,
+            unselectedLabelColor: DS.textMuted,
+            indicatorColor: DS.primary,
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelStyle: DS.label(),
+            tabs: const [
+              Tab(text: 'LOGIC'),
+              Tab(text: 'DATA'),
+              Tab(text: 'LINKS'),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStructuredData() {
-    String jsonDisplay;
-    
-    if (_hasRealData) {
-      // Real data
-      final buffer = StringBuffer();
-      buffer.writeln('{');
-      buffer.writeln('  "document_id": "$_docId",');
-      buffer.writeln('  "type": "$_docType",');
-      buffer.writeln('  "confidence": ${(_confidence * 100).toStringAsFixed(1)}%,');
-      if (_fields.isNotEmpty) {
-        buffer.writeln('  "extracted_fields": {');
-        var i = 0;
-        _fields.forEach((k, v) {
-          final comma = ++i < _fields.length ? ',' : '';
-          buffer.writeln('    "$k": "$v"$comma');
-        });
-        buffer.writeln('  }');
-      }
-      buffer.writeln('}');
-      jsonDisplay = buffer.toString();
-    } else {
-      jsonDisplay = '''
-{
-  "type": "INVOICE",
-  "vendor": {
-    "name": "ACME Corp",
-    "gstin": "27AAACA1234A1ZV"
-  },
-  "invoice": "INV-1024",
-  "date": "2024-10-01",
-  "total": 59000
-}''';
-    }
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Text(
-        jsonDisplay,
-        style: LiquidTheme.monoData(size: 10, color: LiquidTheme.neonCyan),
-      ),
-    );
-  }
-
-  Widget _buildEntityLinks() {
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        Text('RELATED DOCS', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textMuted)),
-        const SizedBox(height: 10),
-        if (_hasRealData)
-          Center(
-            child: Column(
-              children: [
-                Icon(Iconsax.link, size: 32, color: LiquidTheme.textMuted.withOpacity(0.5)),
-                const SizedBox(height: 8),
-                Text('Entity matching', style: LiquidTheme.monoData(size: 10, color: LiquidTheme.textMuted)),
-                Text('requires more documents', style: LiquidTheme.monoData(size: 10, color: LiquidTheme.textMuted)),
-              ],
-            ),
-          )
-        else ...[
-          const _EntityRow(docId: 'DOC-0812', match: 'Same Vendor', confidence: 98),
-          const _EntityRow(docId: 'DOC-0915', match: 'Same Vendor', confidence: 95),
-          const _EntityRow(docId: 'DOC-0928', match: 'Same Bank', confidence: 88),
-        ],
+        ),
+        
+        // Tab content
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildLogicTab(),
+              _buildDataTab(),
+              _buildLinksTab(),
+            ],
+          ),
+        ),
+        
+        // Review button
+        Padding(
+          padding: const EdgeInsets.all(DS.space4),
+          child: GradientButton(
+            label: 'REVIEW',
+            icon: Iconsax.edit_2,
+            onPressed: () {},
+            fullWidth: true,
+          ),
+        ),
       ],
     );
   }
-}
 
-class _ToggleButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final bool isActive;
-  final VoidCallback onTap;
+  Widget _buildTrustScore() {
+    final score = (_confidence * 100).round();
+    final scoreColor = score >= 90 ? DS.success : score >= 70 ? DS.warning : DS.error;
+    
+    return Container(
+      padding: const EdgeInsets.all(DS.space4),
+      child: Row(
+        children: [
+          // Gauge
+          SizedBox(
+            width: 80,
+            height: 80,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox.expand(
+                  child: CircularProgressIndicator(
+                    value: 1,
+                    strokeWidth: 6,
+                    backgroundColor: scoreColor.withOpacity(0.15),
+                    color: Colors.transparent,
+                  ),
+                ),
+                TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 1000),
+                  curve: Curves.easeOutCubic,
+                  tween: Tween(begin: 0, end: _confidence),
+                  builder: (_, v, __) => SizedBox.expand(
+                    child: CircularProgressIndicator(
+                      value: v,
+                      strokeWidth: 6,
+                      backgroundColor: Colors.transparent,
+                      color: scoreColor,
+                      strokeCap: StrokeCap.round,
+                    ),
+                  ),
+                ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('$score', style: DS.stat(color: scoreColor)),
+                    Text('TRUST', style: DS.caption()),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(width: DS.space4),
+          
+          // Breakdown
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ScoreItem(label: 'Validation', delta: -20, positive: false),
+                const SizedBox(height: DS.space2),
+                _ScoreItem(label: 'High ML confidence', delta: 10, positive: true),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  const _ToggleButton({required this.icon, required this.label, required this.color, required this.isActive, required this.onTap});
+  Widget _buildLogicTab() {
+    final validation = widget.document?.validation;
+    final errors = validation?.errors ?? [];
+    final warnings = validation?.warnings ?? [];
+    
+    return ListView(
+      padding: const EdgeInsets.all(DS.space4),
+      children: [
+        if (errors.isNotEmpty)
+          ...errors.map((e) => _ValidationItem(
+            type: 'FAIL',
+            message: e,
+            color: DS.error,
+          )),
+        if (warnings.isNotEmpty)
+          ...warnings.map((w) => _ValidationItem(
+            type: 'WARN',
+            message: w,
+            color: DS.warning,
+          )),
+        if (errors.isEmpty && warnings.isEmpty)
+          _ValidationItem(
+            type: 'PASS',
+            message: 'High confidence: ${(_confidence * 100).toStringAsFixed(1)}%',
+            color: DS.success,
+          ),
+      ],
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: isActive ? color.withOpacity(0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: isActive ? color.withOpacity(0.5) : LiquidTheme.glassBorder),
+  Widget _buildDataTab() {
+    return ListView(
+      padding: const EdgeInsets.all(DS.space4),
+      children: _fields.entries.map((entry) => Padding(
+        padding: const EdgeInsets.only(bottom: DS.space3),
+        child: _FieldItem(
+          fieldName: entry.key,
+          value: entry.value.toString(),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+      )).toList(),
+    );
+  }
+
+  Widget _buildLinksTab() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(DS.space8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: isActive ? color : LiquidTheme.textMuted, size: 12),
-            const SizedBox(width: 4),
-            Text(label, style: LiquidTheme.monoData(size: 8, color: isActive ? color : LiquidTheme.textMuted, weight: FontWeight.bold)),
+            Icon(Iconsax.hierarchy_3, size: 48, color: DS.textMuted.withOpacity(0.5)),
+            const SizedBox(height: DS.space4),
+            Text('Knowledge Graph', style: DS.heading3(color: DS.textMuted)),
+            Text('Entity links will appear here', style: DS.bodySmall()),
           ],
         ),
       ),
@@ -475,57 +424,159 @@ class _ToggleButton extends StatelessWidget {
   }
 }
 
-class _Overlay extends StatelessWidget {
-  final double left, top, width, height;
-  final Color color;
-  final String label;
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPER WIDGETS
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  const _Overlay({required this.left, required this.top, required this.width, required this.height, required this.color, required this.label});
+class _LayerToggle extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool active;
+
+  const _LayerToggle({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.active,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      left: left,
-      top: top,
-      child: Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          border: Border.all(color: color, width: 2),
-          color: color.withOpacity(0.1),
-          boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8)],
-        ),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            color: color,
-            child: Text(label, style: LiquidTheme.monoData(size: 7, color: Colors.white, weight: FontWeight.bold)),
-          ),
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: DS.space3, vertical: DS.space1),
+      decoration: BoxDecoration(
+        color: active ? color.withOpacity(0.15) : Colors.transparent,
+        borderRadius: BorderRadius.circular(DS.radiusFull),
+        border: Border.all(color: active ? color.withOpacity(0.3) : DS.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: active ? color : DS.textMuted),
+          const SizedBox(width: 4),
+          Text(label, style: DS.caption(color: active ? color : DS.textMuted)),
+        ],
       ),
     );
   }
 }
 
-class _EntityRow extends StatelessWidget {
-  final String docId, match;
-  final int confidence;
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
 
-  const _EntityRow({required this.docId, required this.match, required this.confidence});
+  const _IconBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Icon(icon, size: 16, color: DS.textMuted),
+    );
+  }
+}
+
+class _ScoreItem extends StatelessWidget {
+  final String label;
+  final int delta;
+  final bool positive;
+
+  const _ScoreItem({
+    required this.label,
+    required this.delta,
+    required this.positive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = positive ? DS.success : DS.error;
+    return Row(
+      children: [
+        Text(
+          '${positive ? '+' : ''}$delta',
+          style: DS.mono(size: 12, color: color, weight: FontWeight.bold),
+        ),
+        const SizedBox(width: DS.space2),
+        Expanded(
+          child: Text(label, style: DS.bodySmall()),
+        ),
+      ],
+    );
+  }
+}
+
+class _ValidationItem extends StatelessWidget {
+  final String type;
+  final String message;
+  final Color color;
+
+  const _ValidationItem({
+    required this.type,
+    required this.message,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: LiquidTheme.liquidGlassCard(),
+      margin: const EdgeInsets.only(bottom: DS.space2),
+      padding: const EdgeInsets.all(DS.space3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(DS.radiusMd),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
       child: Row(
         children: [
-          Text(docId, style: LiquidTheme.monoData(size: 10, color: LiquidTheme.neonCyan, weight: FontWeight.bold)),
-          const SizedBox(width: 10),
-          Expanded(child: Text(match, style: LiquidTheme.monoData(size: 9, color: LiquidTheme.textSecondary))),
-          Text('$confidence%', style: LiquidTheme.monoData(size: 9, color: LiquidTheme.neonGreen, weight: FontWeight.bold)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: DS.space2, vertical: 2),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(DS.radiusSm),
+            ),
+            child: Text(
+              '[$type]',
+              style: DS.caption(color: Colors.white).copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: DS.space3),
+          Expanded(
+            child: Text(message, style: DS.bodySmall()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FieldItem extends StatelessWidget {
+  final String fieldName;
+  final String value;
+
+  const _FieldItem({
+    required this.fieldName,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(DS.space3),
+      decoration: BoxDecoration(
+        color: DS.surfaceElevated,
+        borderRadius: BorderRadius.circular(DS.radiusMd),
+        border: Border.all(color: DS.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            fieldName.replaceAll('_', ' ').toUpperCase(),
+            style: DS.label(),
+          ),
+          const SizedBox(height: DS.space1),
+          Text(value, style: DS.body()),
         ],
       ),
     );

@@ -8,7 +8,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from typing import Dict, Any
 import logging
 
-from app.services.document_intelligence_pipeline import get_pipeline
+from app.services.universal_pipeline import get_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -53,3 +53,32 @@ async def analyze_document(file: UploadFile = File(...)) -> Dict[str, Any]:
 async def health_check() -> Dict[str, str]:
     """Health check."""
     return {"status": "healthy", "service": "document-intelligence"}
+
+
+@router.get("/{doc_id}")
+async def get_document(doc_id: str) -> Dict[str, Any]:
+    """Get analysis result."""
+    from app.services.memory_store import get_memory_store
+    store = get_memory_store()
+    
+    doc = store.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    return doc
+
+
+from fastapi.responses import Response
+
+@router.get("/{doc_id}/file")
+async def get_document_file(doc_id: str):
+    """Get raw file bytes (for display)."""
+    from app.services.memory_store import get_memory_store
+    store = get_memory_store()
+    
+    file_bytes = store.get_file(doc_id)
+    if not file_bytes:
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    # Assume PDF for now as that's 99% of use case
+    return Response(content=file_bytes, media_type="application/pdf")

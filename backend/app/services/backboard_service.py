@@ -145,8 +145,10 @@ Return ONLY the JSON, no explanations."""
                     f"{self.api_url}/threads/{thread_id}/messages",
                     data=data,
                     files=files,
-                    headers=headers_no_ct
+                    headers=headers_no_ct,
+                    timeout=60.0  # Explicit timeout for long LLM processing
                 )
+
                 
                 # DEBUG: Log HTTP response details
                 logger.info(f"[BACKBOARD] HTTP Status: {msg_resp.status_code}")

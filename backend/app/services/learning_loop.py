@@ -18,6 +18,11 @@ class CorrectionStore:
     def __init__(self):
         """Initialize correction store."""
         self.corrections: List[Dict[str, Any]] = []
+        self.total_processed_count = 0
+
+    def record_processed_document(self):
+        """Increment processed document counter."""
+        self.total_processed_count += 1
     
     def add_correction(
         self,
@@ -105,13 +110,11 @@ class CorrectionStore:
     
     def get_error_rate(self) -> float:
         """Calculate overall error rate."""
-        if not self.corrections:
+        if self.total_processed_count == 0:
             return 0.0
-        
-        # Assuming each correction represents one error
-        # In production, track total documents processed
-        total_documents = len(set(c["document_id"] for c in self.corrections))
-        return len(self.corrections) / max(total_documents, 1)
+            
+        # Error rate = Total corrections / Total documents
+        return len(self.corrections) / self.total_processed_count
     
     def _check_retraining_triggers(self):
         """Check if retraining should be triggered."""

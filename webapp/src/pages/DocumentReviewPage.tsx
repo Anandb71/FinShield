@@ -28,9 +28,10 @@ import {
   Thead,
   Tr,
   VStack,
-  Switch
+  Switch,
+  Icon
 } from "@chakra-ui/react";
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiDownload, FiFileText, FiDatabase } from "react-icons/fi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -170,6 +171,7 @@ export default function DocumentReviewPage() {
   const extractedFields = data.extracted_fields ?? {};
   const isBankStatement = classification.type === "bank_statement";
   const isPdf = data.filename?.toLowerCase().endsWith(".pdf");
+  const isExcel = data.filename?.toLowerCase().endsWith(".xlsx") || data.filename?.toLowerCase().endsWith(".xls") || data.filename?.toLowerCase().endsWith(".csv");
 
   const transactions = useMemo(() => {
     const raw = extractedFields.transactions;
@@ -500,16 +502,74 @@ export default function DocumentReviewPage() {
                   </Document>
                 </Box>
               </VStack>
+            ) : isExcel ? (
+              <VStack spacing={6} justify="center" height="100%" p={6}>
+                <Box
+                  border="2px dashed"
+                  borderColor="green.700"
+                  borderRadius="xl"
+                  p={8}
+                  width="100%"
+                  textAlign="center"
+                >
+                  <VStack spacing={4}>
+                    <Icon as={FiDatabase} w={14} h={14} color="green.400" />
+                    <Badge colorScheme="green" fontSize="sm" px={3} py={1} borderRadius="full">
+                      DIGITAL LEDGER
+                    </Badge>
+                    <Text color="gray.400" fontSize="md">
+                      Structured Excel data — no image preview needed
+                    </Text>
+                    <Divider borderColor="whiteAlpha.200" />
+                    <SimpleGrid columns={2} spacing={4} width="100%">
+                      <Stat textAlign="center">
+                        <StatLabel color="whiteAlpha.600" fontSize="xs">Opening</StatLabel>
+                        <StatNumber fontSize="md" color="green.300">
+                          {typeof extractedFields.opening_balance === "number"
+                            ? extractedFields.opening_balance.toLocaleString(undefined, { minimumFractionDigits: 2 })
+                            : "-"}
+                        </StatNumber>
+                      </Stat>
+                      <Stat textAlign="center">
+                        <StatLabel color="whiteAlpha.600" fontSize="xs">Closing</StatLabel>
+                        <StatNumber fontSize="md" color="blue.300">
+                          {typeof extractedFields.closing_balance === "number"
+                            ? extractedFields.closing_balance.toLocaleString(undefined, { minimumFractionDigits: 2 })
+                            : "-"}
+                        </StatNumber>
+                      </Stat>
+                    </SimpleGrid>
+                    <Text fontSize="sm" color="whiteAlpha.500">
+                      {transactionSummary.count} transactions parsed · Quality: {typeof quality_metrics?.score === "number" ? `${Math.round(quality_metrics.score * 100)}%` : "Digital (100%)"}
+                    </Text>
+                    <Button
+                      leftIcon={<FiDownload />}
+                      colorScheme="green"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(`/api/documents/${encodeURIComponent(data.document_id)}/file`, "_blank")}
+                    >
+                      Download Original File
+                    </Button>
+                    <Text fontSize="xs" color="whiteAlpha.400">
+                      Review extracted data in the intelligence panel →
+                    </Text>
+                  </VStack>
+                </Box>
+              </VStack>
             ) : (
               <VStack align="stretch" spacing={3} p={6} height="100%" justify="center">
+                <Icon as={FiFileText} w={10} h={10} color="purple.400" />
                 <Heading size="sm">Evidence preview unavailable</Heading>
                 <Text fontSize="sm" color="whiteAlpha.700">
-                  This file is not a PDF. Use the transaction intelligence panel to audit
-                  the extracted rows or open the original file in a new tab.
+                  This file format does not support in-browser preview.
+                  Use the transaction intelligence panel to audit the extracted rows.
                 </Text>
                 <Button
+                  leftIcon={<FiDownload />}
                   size="sm"
                   colorScheme="purple"
+                  variant="outline"
                   alignSelf="flex-start"
                   onClick={() => window.open(`/api/documents/${encodeURIComponent(data.document_id)}/file`, "_blank")}
                 >

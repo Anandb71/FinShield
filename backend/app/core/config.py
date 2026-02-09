@@ -1,45 +1,77 @@
 """
-FinShield API - Core Configuration
+FinShield / Finsight - Core Configuration
 
-Central configuration management using Pydantic Settings.
-Supports environment variables and .env files.
+Environment-driven settings for the new build.
 """
 
 from functools import lru_cache
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+ROOT_DIR = BASE_DIR.parent
+BACKEND_ENV = BASE_DIR / ".env"
+ROOT_ENV = ROOT_DIR / ".env"
 
 
 class Settings(BaseSettings):
     """Application settings with environment variable support."""
 
     # API Configuration
-    app_name: str = "FinShield API"
-    app_version: str = "0.1.0"
+    app_name: str = "Finsight API"
+    app_version: str = "1.0.0"
     debug: bool = True
 
     # Server Configuration
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # CORS Configuration (for Flutter app)
+    # CORS Configuration
     cors_origins: list[str] = [
         "http://localhost:*",
         "http://127.0.0.1:*",
-        "http://10.0.2.2:*",  # Android emulator
+        "http://10.0.2.2:*",
     ]
 
-
     # Backboard.io Configuration (Document Intelligence + Knowledge Graph)
-    backboard_api_key: str = "espr_OkJGNjjZxsqiTXyfuO0NO2BJ5NFHQ7PQmCtQbpDOAeQ"
+    backboard_api_key: str = ""
     backboard_api_url: str = "https://app.backboard.io/api"
     backboard_workspace_id: str = ""
+    backboard_llm_provider: str = "openai"
+    backboard_model_name: str = "gpt-4o"
+    backboard_max_retries: int = 3
+    backboard_retry_delay_seconds: float = 2.0
+    backboard_retry_max_delay_seconds: float = 12.0
 
-    # AI Service Configuration (placeholders for Hotfoot)
-    hotfoot_audio_api_key: str = ""
-    hotfoot_docs_api_key: str = ""
+    # Storage
+    database_url: str = "sqlite:///./finsight.db"
+
+    # Review thresholds
+    review_confidence_threshold: float = 0.8
+    review_quality_threshold: float = 0.7
+
+    # Learning triggers
+    learning_corrections_threshold: int = 100
+    learning_error_rate_threshold: float = 0.1
+
+    # Upload constraints
+    max_upload_mb: int = 25
+
+    # Dataset ingestion
+    dataset_path: str = ""
+
+    # OCR
+    tesseract_cmd: str = ""
+    ocr_lang: str = "eng"
+    ocr_psm: int = 6
+    ocr_oem: int = 1
+    ocr_preserve_interword_spaces: int = 1
+    ocr_char_whitelist: str = ""
 
     class Config:
-        env_file = ".env"
+        env_file = (str(ROOT_ENV), str(BACKEND_ENV))
         env_file_encoding = "utf-8"
         extra = "ignore"
 

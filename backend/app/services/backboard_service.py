@@ -97,23 +97,65 @@ class BackboardDocumentService:
                 thread_id = thread_resp.json().get("thread_id")
                 
                 # 3. Send Message with File - with structured prompt
-                prompt = """Analyze this document and return ONLY a JSON object with this EXACT structure:
+                prompt = """You are FinShield, an expert financial document underwriter.
+
+Analyze the attached document and return ONLY a single JSON object
+with this EXACT structure (no extra keys, no comments, no markdown):
 
 {
-    "classification": {
-        "type": "invoice" or "bank_statement" or "payslip" or "contract" or "unknown",
-        "confidence": 0.95
-    },
-    "extracted_fields": {
-        "field_name": "value"
-    }
+  "classification": {
+    "type": "invoice" | "bank_statement" | "payslip" | "contract" | "unknown",
+    "confidence": <number 0-1>,
+    "language": "<BCP-47 language code, e.g. en, fr, hi>",
+    "image_quality_score": <number 0-1>
+  },
+  "extracted_fields": {
+    "vendor_name": <string or null>,
+    "invoice_number": <string or null>,
+    "total": <number or null>,
+    "subtotal": <number or null>,
+    "tax": <number or null>,
+    "invoice_date": "<ISO date or null>",
+    "due_date": "<ISO date or null>",
+
+    "bank_name": <string or null>,
+    "institution_name": <string or null>,
+    "account_holder_name": <string or null>,
+    "account_number": <string or null>,
+    "opening_balance": <number or null>,
+    "closing_balance": <number or null>,
+
+    "employee_name": <string or null>,
+    "employer_name": <string or null>,
+    "gross_salary": <number or null>,
+    "net_salary": <number or null>,
+    "deductions": <number or null>,
+
+    "transactions": [
+      {
+        "date": "<ISO date>",
+        "amount": <number>,
+        "currency": "<currency code or null>",
+        "description": "<string>"
+      }
+    ],
+    "line_items": [
+      {
+        "description": "<string>",
+        "quantity": <number or null>,
+        "unit_price": <number or null>,
+        "amount": <number>
+      }
+    ]
+  }
 }
 
-For invoices, extract: invoice_number, vendor_name, total_amount, date, bill_to
-For bank statements, extract: account_number, bank_name, opening_balance, closing_balance
-For payslips, extract: employee_name, employer_name, gross_salary, net_salary
-
-Return ONLY the JSON, no explanations."""
+Rules:
+- Respect the schema exactly; use null when a field is not applicable.
+- All numbers must be valid JSON numbers (no currency symbols).
+- Dates must be ISO 8601 (YYYY-MM-DD) when possible.
+- If you are uncertain, choose the best guess and lower the confidence.
+- Return ONLY the JSON object, with no explanation or markdown."""
                 
                 # httpx handles multipart if 'files' is provided. 'data' fields become form fields.
                 # API expects 'send_to_llm' as boolean or string "true"?
@@ -145,8 +187,10 @@ Return ONLY the JSON, no explanations."""
                     f"{self.api_url}/threads/{thread_id}/messages",
                     data=data,
                     files=files,
-                    headers=headers_no_ct
+                    headers=headers_no_ct,
+                    timeout=60.0  # Explicit timeout for long LLM processing
                 )
+
                 
                 # DEBUG: Log HTTP response details
                 logger.info(f"[BACKBOARD] HTTP Status: {msg_resp.status_code}")

@@ -1,0 +1,2 @@
+﻿warning - The value of the field '_error' isn't used - lib\features\dashboard\command_center_dashboard.dart:30:11 - unused_field
+warning - The value of the field '_error' isn't used - lib\features\review\review_screen.dart:26:11 - unused_field

@@ -22,7 +22,7 @@ http://localhost:8000/api
 
 ## 📤 1. Document Upload & Analysis
 
-**Endpoint**: `POST /api/documents/analyze`
+**Primary endpoint (single document)**: `POST /api/documents/analyze`
 
 **Request**:
 ```javascript
@@ -72,6 +72,28 @@ const result = await response.json();
 ```
 
 ---
+
+### Bulk ingestion (new web UI)
+
+The new React-based Reviewer UI uses a bulk-ingestion API that wraps the same
+pipeline and stores the results in the shared memory + knowledge graph.
+
+**Endpoint**: `POST /api/ingestion/documents`
+
+**Response (summary per file)**:
+```json
+{
+  "documents": [
+    {
+      "document_id": "uuid-here",
+      "filename": "invoice.pdf",
+      "doc_type": "INVOICE",
+      "confidence": 0.94,
+      "status": "success"
+    }
+  ]
+}
+```
 
 ## ✏️ 2. Submit Corrections
 
@@ -187,7 +209,9 @@ const metrics = await fetch('http://localhost:8000/api/dashboard/metrics')
 
 ## 📈 6. Error Clusters
 
-**Endpoint**: `GET /api/review/errors/clusters`
+**Legacy endpoint**: `GET /api/review/errors/clusters`
+
+**Learning-loop endpoint (for analytics)**: `GET /api/learning/errors/clusters`
 
 **Use Case**: View common extraction errors
 

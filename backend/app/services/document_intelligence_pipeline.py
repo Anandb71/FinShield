@@ -83,7 +83,7 @@ class DocumentIntelligencePipeline:
             # Calculate processing time
             processing_time = (datetime.now() - start_time).total_seconds()
             
-            return {
+            final_result = {
                 "document_id": analysis.get("document_id", doc_id),
                 "filename": filename,
                 "classification": analysis["classification"],
@@ -95,6 +95,52 @@ class DocumentIntelligencePipeline:
                 "processing_time_seconds": processing_time,
                 "status": "success"
             }
+            
+            # ---------------------------------------------------------
+            # NEW: Save to Volatile Memory Store
+            # ---------------------------------------------------------
+            try:
+                from app.services.memory_store import get_memory_store
+                store = get_memory_store()
+                
+                # 1. Save Document Result
+                store.save_document(final_result["document_id"], final_result, pdf_bytes)
+                
+                # 2. Check for Low Confidence Fields (< 0.8)
+                # If any field has low confidence (or missing), flag for review
+                # Since Backboard v2 returns aggregate confidence, we will use that as a proxy for all fields
+                # In a real scenario, we'd check per-field confidence if available.
+                
+                doc_conf = float(analysis["classification"].get("confidence", 0.0))
+                
+                if doc_conf < 0.8:
+                    # Flag entire document or specific fields?
+                    # Let's flag "extracted_fields" generally
+                    store.add_to_review({
+                        "doc_id": final_result["document_id"],
+                        "field": "document_classification", # General flag
+                        "ocr_value": doc_type,
+                        "suggestion": "Verify Document Type",
+                        "confidence": int(doc_conf * 100),
+                        "doc_type": doc_type
+                    })
+                    
+                # Also check validation errors
+                for error in validation.get("errors", []):
+                     store.add_to_review({
+                        "doc_id": final_result["document_id"],
+                        "field": "validation_error",
+                        "ocr_value": "INVALID",
+                        "suggestion": error,
+                        "confidence": 0,
+                        "doc_type": doc_type
+                    })
+                    
+            except Exception as e:
+                logger.error(f"Failed to save to memory store: {e}")
+                # Don't fail the request, just log
+            
+            return final_result
             
         except Exception as e:
             logger.error(f"Document processing failed: {e}")

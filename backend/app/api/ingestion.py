@@ -79,6 +79,8 @@ def _persist_anomalies(
         "cashflow": "cashflow_anomaly",
         "synthetic": "synthetic_pattern",
         "transactions": "data_quality",
+        "date_sequence": "date_sequence_anomaly",
+        "metadata_integrity": "metadata_integrity_failure",
     }
     for w in validation_warnings:
         field = w.get("field", "unknown")
@@ -264,6 +266,28 @@ async def ingest_documents(
             debug_log.append(f"warning_messages: {', '.join(warning_msgs)}")
 
         confidence = classification.get("confidence") or 0.0
+
+        # ── Metadata Integrity Check: massive penalty for header fraud ──
+        if excel_result and excel_result.metadata_discrepancy:
+            disc = excel_result.metadata_discrepancy
+            debug_log.append(
+                f"METADATA INTEGRITY FAILURE: header_closing={disc['header_closing']}, "
+                f"calculated_closing={disc['calculated_closing']}, "
+                f"discrepancy={disc['discrepancy']:,.2f}, ratio={disc['ratio']:.1f}x"
+            )
+            # This is a fraud signal — slam confidence to near zero
+            confidence = min(confidence, 0.12)
+            debug_log.append(f"confidence_slammed_to: {confidence} (metadata fraud)")
+            # Also inject as a validation error so it shows in the UI
+            errors.append({
+                "field": "metadata_integrity",
+                "message": (
+                    f"FRAUD: Header closing balance ({disc['header_closing']:,.2f}) "
+                    f"does not match calculated balance ({disc['calculated_closing']:,.2f}). "
+                    f"Discrepancy: {disc['discrepancy']:,.2f}"
+                ),
+                "severity": "critical",
+            })
 
         # ── FIX #9: Penalize confidence based on validation issues ──
         confidence_penalty = 0.0

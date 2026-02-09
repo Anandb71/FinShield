@@ -35,6 +35,8 @@ class NormalizedStatement:
     repair_log: List[str] = field(default_factory=list)
     raw_headers: List[str] = field(default_factory=list)
     detected_anomalies: List[Dict[str, Any]] = field(default_factory=list)
+    # Metadata integrity: stores header vs calculated discrepancy for fraud detection
+    metadata_discrepancy: Optional[Dict[str, Any]] = None
 
 
 # Common header aliases for bank statements
@@ -455,30 +457,75 @@ def normalize_excel_statement(content: bytes, filename: str = "") -> NormalizedS
         result.closing_balance = summary_closing
         result.repair_log.append(f"closing_from_summary: {summary_closing}")
 
-    # Step 5: Detect summary injection anomaly (Account 3 pattern)
-    if result.closing_balance is not None and result.transactions:
-        last_balance = None
+    # Step 5: Metadata Integrity Check (Account 3 fraud pattern)
+    # Compare the header/summary closing balance against the actual last
+    # transaction balance.  A massive discrepancy (>1.0 AND >50x) means the
+    # header is lying — possible data tampering / summary injection.
+    if result.transactions:
+        last_tx_balance = None
         for tx in reversed(result.transactions):
             if tx.get("balance") is not None:
-                last_balance = tx["balance"]
+                last_tx_balance = tx["balance"]
                 break
-        if last_balance is not None and result.closing_balance is not None:
-            if abs(result.closing_balance) > abs(last_balance) * 50 and abs(last_balance) > 0:
+
+        # Also compare against the raw summary_closing extracted from the
+        # header section at the top of the sheet.
+        header_closing = summary_closing  # from Step 1
+        calculated_closing = last_tx_balance
+
+        if header_closing is not None and calculated_closing is not None:
+            discrepancy = abs(header_closing - calculated_closing)
+            if discrepancy > 1.0 and abs(calculated_closing) > 0 and abs(header_closing) > abs(calculated_closing) * 5:
+                result.metadata_discrepancy = {
+                    "header_closing": header_closing,
+                    "calculated_closing": calculated_closing,
+                    "discrepancy": discrepancy,
+                    "ratio": abs(header_closing / calculated_closing) if calculated_closing != 0 else float('inf'),
+                }
                 result.detected_anomalies.append({
-                    "type": "summary_injection",
+                    "type": "metadata_integrity_failure",
                     "severity": "critical",
                     "description": (
-                        f"Closing balance ({result.closing_balance}) is wildly inconsistent "
-                        f"with last transaction balance ({last_balance}). "
-                        "Possible summary injection or data tampering."
+                        f"FRAUD SIGNAL: Header closing balance ({header_closing:,.2f}) "
+                        f"does not match calculated row balance ({calculated_closing:,.2f}). "
+                        f"Discrepancy: {discrepancy:,.2f}. "
+                        "The document header is inconsistent with the transaction data — "
+                        "possible summary injection or data tampering."
                     ),
                 })
                 result.repair_log.append(
-                    f"CRITICAL: summary injection detected - "
-                    f"closing={result.closing_balance} vs last_row={last_balance}"
+                    f"CRITICAL: metadata integrity failure - "
+                    f"header_closing={header_closing} vs calculated={calculated_closing} "
+                    f"(discrepancy={discrepancy:,.2f})"
                 )
-                # Override with the transaction-level closing balance
-                result.closing_balance = last_balance
+                # DO NOT override closing_balance — keep the fraudulent header
+                # value so the validation layer also catches the mismatch
+                # and fires its own balance-continuity error.
+
+        # Separate check: if closing_balance was set from rows (closing_from_row)
+        # but differs wildly from the last transaction balance, flag it too
+        if result.closing_balance is not None and last_tx_balance is not None:
+            if abs(result.closing_balance) > abs(last_tx_balance) * 50 and abs(last_tx_balance) > 0:
+                if result.metadata_discrepancy is None:
+                    result.metadata_discrepancy = {
+                        "header_closing": result.closing_balance,
+                        "calculated_closing": last_tx_balance,
+                        "discrepancy": abs(result.closing_balance - last_tx_balance),
+                        "ratio": abs(result.closing_balance / last_tx_balance) if last_tx_balance != 0 else float('inf'),
+                    }
+                    result.detected_anomalies.append({
+                        "type": "metadata_integrity_failure",
+                        "severity": "critical",
+                        "description": (
+                            f"FRAUD SIGNAL: Closing balance ({result.closing_balance:,.2f}) is wildly inconsistent "
+                            f"with last transaction balance ({last_tx_balance:,.2f}). "
+                            "Possible summary injection or data tampering."
+                        ),
+                    })
+                    result.repair_log.append(
+                        f"CRITICAL: summary injection detected - "
+                        f"closing={result.closing_balance} vs last_row={last_tx_balance}"
+                    )
 
     # Step 6: Check for merge artifact (mixed date formats)
     # Only flag if there are truly multiple REAL date formats (ignore single-count outliers)

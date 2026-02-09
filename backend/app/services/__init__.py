@@ -1,13 +1,3 @@
-"""FinShield Services Module"""
-
-from app.services.audio_analyzer import (
-    AudioAnalyzerBase,
-    AudioAnalysisResult,
-    MockAudioAnalyzer,
-    ThreatLevel,
-    TacticType,
-    get_audio_analyzer,
-)
 from app.services.document_scanner import (
     DocumentScannerBase,
     DocumentAnalysisResult,
@@ -22,11 +12,7 @@ from app.services.context_engine import (
     MockContextEngine,
     get_context_engine,
 )
-from app.services.audio_processor import (
-    AudioProcessorBase,
-    MockAudioProcessor,
-    get_audio_processor,
-)
+
 from app.services.document_engine import (
     DocumentEngineBase,
     MockDocumentEngine,
@@ -34,13 +20,6 @@ from app.services.document_engine import (
 )
 
 __all__ = [
-    # Audio Analyzer (REST)
-    "AudioAnalyzerBase",
-    "AudioAnalysisResult",
-    "MockAudioAnalyzer",
-    "ThreatLevel",
-    "TacticType",
-    "get_audio_analyzer",
     # Document Scanner (REST)
     "DocumentScannerBase",
     "DocumentAnalysisResult",
@@ -53,10 +32,7 @@ __all__ = [
     "ContextAnalysisResult",
     "MockContextEngine",
     "get_context_engine",
-    # Audio Processor (WebSocket - Sreedev)
-    "AudioProcessorBase",
-    "MockAudioProcessor",
-    "get_audio_processor",
+
     # Document Engine (WebSocket - Anupam)
     "DocumentEngineBase",
     "MockDocumentEngine",

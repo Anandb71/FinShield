@@ -34,8 +34,7 @@ class Settings(BaseSettings):
     backboard_api_url: str = "https://app.backboard.io/api"
     backboard_workspace_id: str = ""
 
-    # AI Service Configuration (placeholders for Hotfoot)
-    hotfoot_audio_api_key: str = ""
+    # AI Service Configuration (placeholders for future providers)
     hotfoot_docs_api_key: str = ""
 
     class Config:

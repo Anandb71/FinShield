@@ -25,7 +25,7 @@ class ApiService {
     try {
       _log('[HEALTH] Checking $baseUrl/v1/health...');
       final response = await http.get(Uri.parse('$baseUrl/v1/health'))
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
         _log('[HEALTH] Success!');
         return true;
@@ -38,7 +38,7 @@ class ApiService {
     try {
       _log('[HEALTH] Trying root fallback (127.0.0.1)...');
       final response = await http.get(Uri.parse('http://127.0.0.1:8000/'))
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
         baseUrl = 'http://127.0.0.1:8000/api'; // Update base url
         return true;
@@ -47,11 +47,25 @@ class ApiService {
       _log('[HEALTH] Root fallback failed: $e');
     }
 
-    // 3. Fallback: Localhost (Chrome specific)
+    // 3. Fallback: Android Emulator (10.0.2.2)
+    try {
+      _log('[HEALTH] Trying Android fallback (10.0.2.2)...');
+      final response = await http.get(Uri.parse('http://10.0.2.2:8000/'))
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        baseUrl = 'http://10.0.2.2:8000/api'; // Update to Android host
+        _log('[HEALTH] Switched to Android host!');
+        return true;
+      }
+    } catch (e) {
+      _log('[HEALTH] Android fallback failed: $e');
+    }
+
+    // 4. Fallback: Localhost (Chrome specific)
     try {
       _log('[HEALTH] Trying localhost fallback...');
       final response = await http.get(Uri.parse('http://localhost:8000/'))
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
         baseUrl = 'http://localhost:8000/api'; // Update to localhost
         _log('[HEALTH] Switched to localhost!');
@@ -111,13 +125,37 @@ class ApiService {
         
         return ApiResult.success(DocumentAnalysisResult.fromJson(data));
       } else {
-        _log('[ERROR] Upload failed: ${response.statusCode}');
         return ApiResult.error('Upload failed: ${response.statusCode}');
       }
     } catch (e) {
       _log('[ERROR] Connection failed: $e');
       return ApiResult.error('Backend offline');
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DOCUMENT RETRIEVAL (NEW)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  static Future<ApiResult<DocumentAnalysisResult>> getDocument(String docId) async {
+    _log('[FETCH] Document: $docId');
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/documents/$docId'))
+          .timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return ApiResult.success(DocumentAnalysisResult.fromJson(data));
+      } else {
+        return ApiResult.error('Not found');
+      }
+    } catch (e) {
+      return ApiResult.error('Connection failed');
+    }
+  }
+
+  static String getDocumentFileUrl(String docId) {
+    return '$baseUrl/documents/$docId/file';
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
@@ -296,11 +334,11 @@ class DocumentAnalysisResult {
   factory DocumentAnalysisResult.fromJson(Map<String, dynamic> json) {
     final layouts = <String>[];
     if (json['layout'] != null) {
-      if ((json['layout']['tables'] as List?)?.isNotEmpty == true) layouts.add('Table');
+      if (json['layout']['tables'] == true) layouts.add('Table');
       if (json['layout']['handwritten'] == true) layouts.add('Handwritten');
       if (json['layout']['stamps'] == true) layouts.add('Stamp');
       if (json['layout']['signatures'] == true) layouts.add('Signature');
-      if ((json['layout']['headers'] as List?)?.isNotEmpty == true) layouts.add('Header');
+      if (json['layout']['headers'] == true) layouts.add('Header');
     }
     
     return DocumentAnalysisResult(

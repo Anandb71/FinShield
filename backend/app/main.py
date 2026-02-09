@@ -9,7 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.api import router as api_router
-from app.sockets import router as websocket_router
 
 
 def create_app() -> FastAPI:
@@ -25,10 +24,10 @@ def create_app() -> FastAPI:
         debug=settings.debug,
     )
 
-    # Configure CORS for Flutter app
+    # Configure CORS - Allow ALL origins for dev/web
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Allow all origins for development
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -37,9 +36,6 @@ def create_app() -> FastAPI:
     # Include REST API routes
     app.include_router(api_router)
     
-    # Include WebSocket routes
-    app.include_router(websocket_router)
-
     @app.get("/")
     async def root():
         """Root endpoint - API information."""
@@ -49,11 +45,11 @@ def create_app() -> FastAPI:
             "status": "operational",
             "docs": "/docs",
             "health": "/api/v1/health",
-            "websocket": "/ws/stream/{client_id}",
         }
 
     return app
 
 
 # Create application instance
+print("--- RELOADING BACKEND WITH REAL AI ---")
 app = create_app()

@@ -24,10 +24,10 @@ async def health_check():
         "version": "0.1.0",
         "timestamp": datetime.utcnow().isoformat(),
         "components": {
-            "audio_analyzer": "operational",
-            "document_scanner": "operational",
-            "context_engine": "operational",
-        }
+            "document_intelligence": "operational",
+            "learning_loop": "operational",
+            "dashboard": "operational",
+        },
     }
 
 

@@ -158,7 +158,8 @@ def run_validations(
     warnings: List[Dict[str, Any]] = []
     consistency: Dict[str, Any] = {"consistent": True, "issues": []}
 
-    now = datetime.now(timezone.utc)
+    # SQLite returns naive datetimes — keep comparisons naive
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     doc_type = (doc_type or "unknown").lower()
 
     if doc_type == "invoice":

@@ -54,7 +54,8 @@ async def get_dashboard_metrics(session: Session = Depends(get_session)) -> Dict
 
     error_clusters = cluster_corrections(session).get("clusters", {})
 
-    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    # SQLite returns naive datetimes, so compare with naive UTC
+    week_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
     docs_last_7 = [doc for doc in docs if doc.created_at >= week_ago]
     corrections_last_7 = [corr for corr in corrections if corr.created_at >= week_ago]
     error_rate_7 = (len(corrections_last_7) / len(docs_last_7)) if docs_last_7 else 0.0

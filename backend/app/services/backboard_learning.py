@@ -10,7 +10,7 @@ in-memory CorrectionStore or the stubbed BackboardDocumentService.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlmodel import Session, select
@@ -203,7 +203,7 @@ class BackboardLearningEnhancer:
             payload={
                 "clusters_synced": synced,
                 "total_corrections": len(corrections),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
         session.add(event)
@@ -232,7 +232,10 @@ class BackboardLearningEnhancer:
         ).first()
         if last_sync is None:
             return True
-        return datetime.utcnow() - last_sync.created_at > _LEARNING_COOLDOWN
+        now = datetime.now(timezone.utc)
+        # Ensure created_at is timezone-aware for comparison
+        sync_time = last_sync.created_at.replace(tzinfo=timezone.utc) if last_sync.created_at.tzinfo is None else last_sync.created_at
+        return now - sync_time > _LEARNING_COOLDOWN
 
 
 # ---------------------------------------------------------------------------

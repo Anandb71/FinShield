@@ -11,7 +11,7 @@ Reports include:
   - Currency & multi-currency metadata
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -137,7 +137,7 @@ async def generate_report(
 
     report = {
         "report_id": f"RPT-{doc.id[:8].upper()}",
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "document": {
             "id": doc.id,
             "filename": doc.filename,
@@ -266,7 +266,7 @@ async def generate_html_report(
 <body>
 <div class="container">
   <h1>🛡️ FinShield Forensic Report</h1>
-  <p class="subtitle">Report ID: RPT-{doc.id[:8].upper()} &nbsp;|&nbsp; Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</p>
+  <p class="subtitle">Report ID: RPT-{doc.id[:8].upper()} &nbsp;|&nbsp; Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>
 
   <h2>Document Overview</h2>
   <div class="grid">
@@ -405,7 +405,7 @@ async def generate_batch_report(
 
     return {
         "report_id": f"BATCH-{batch_id[:8].upper()}",
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "batch_id": batch_id,
         "summary": {
             "total_documents": len(docs),

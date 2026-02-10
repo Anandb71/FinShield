@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Optional
 import re
 
@@ -158,7 +158,7 @@ def run_validations(
     warnings: List[Dict[str, Any]] = []
     consistency: Dict[str, Any] = {"consistent": True, "issues": []}
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     doc_type = (doc_type or "unknown").lower()
 
     if doc_type == "invoice":

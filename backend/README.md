@@ -1,3 +1,3 @@
-# Finsight Backend
+# FinShield Backend
 
-FastAPI service for the Finsight autonomous financial document intelligence engine.
+FastAPI service for the FinShield autonomous financial document intelligence engine.

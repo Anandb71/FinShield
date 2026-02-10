@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any, List
 from uuid import uuid4
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, SQLModel
@@ -26,7 +30,7 @@ class Document(SQLModel, table=True):
     validation_warnings: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     consistency: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     processing_time_ms: Optional[int] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)
 
 
 class Transaction(SQLModel, table=True):
@@ -43,7 +47,7 @@ class Transaction(SQLModel, table=True):
     category: Optional[str] = None
     is_anomaly: bool = False
     anomaly_tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)
 
 
 class Anomaly(SQLModel, table=True):
@@ -56,7 +60,7 @@ class Anomaly(SQLModel, table=True):
     description: str = ""
     details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     row_index: Optional[int] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)
 
 
 class Correction(SQLModel, table=True):
@@ -66,7 +70,7 @@ class Correction(SQLModel, table=True):
     original_value: Optional[str] = None
     corrected_value: Optional[str] = None
     corrected_by: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)
 
 
 class Entity(SQLModel, table=True):
@@ -74,7 +78,7 @@ class Entity(SQLModel, table=True):
     entity_type: str
     canonical_value: str
     normalized_value: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)
 
 
 class DocumentEntity(SQLModel, table=True):
@@ -86,4 +90,4 @@ class LearningEvent(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
     event_type: str
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=_utcnow)

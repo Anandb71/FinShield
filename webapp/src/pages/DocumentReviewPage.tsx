@@ -347,6 +347,13 @@ export default function DocumentReviewPage() {
     return evidenceAnchor.description || "";
   }, [evidenceAnchor]);
 
+  // Auto-select first transaction so Recon tab has data immediately
+  useEffect(() => {
+    if (selectedTxnIndex === null && transactions.length > 0) {
+      setSelectedTxnIndex(transactions[0].index);
+    }
+  }, [transactions, selectedTxnIndex]);
+
   useEffect(() => {
     if (!isPdf || !highlightText) return;
     const timer = window.setTimeout(() => {

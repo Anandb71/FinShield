@@ -8,7 +8,9 @@ from sqlmodel import Session
 
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.db.models import Document
+from sqlmodel import select as sql_select
+
+from app.db.models import Document, DocumentEntity, Entity
 from app.services.backboard_client import BackboardClient
 from app.services.entity_resolution import resolve_entities
 from app.services.storage import save_file, read_file
@@ -132,7 +134,29 @@ async def get_document(doc_id: str, session: Session = Depends(get_session)) -> 
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    graph = get_knowledge_store().get_document_graph(doc.id)
+    store = get_knowledge_store()
+    graph = store.get_document_graph(doc.id)
+
+    # Rebuild knowledge graph on-the-fly when lost (e.g. after restart)
+    if graph is None and doc.extracted_fields:
+        links = session.exec(
+            sql_select(DocumentEntity).where(DocumentEntity.document_id == doc.id)
+        ).all()
+        entity_nodes: list[KGNode] = []
+        for link in links:
+            entity = session.get(Entity, link.entity_id)
+            if entity:
+                entity_nodes.append(
+                    KGNode(
+                        id=entity.id,
+                        type=entity.entity_type,
+                        properties={"canonical_value": entity.canonical_value},
+                    )
+                )
+        graph = build_graph_from_document(
+            doc.id, doc.doc_type or "unknown", doc.extracted_fields, entity_nodes
+        )
+        store.upsert_document_graph(graph)
 
     return {
         "document_id": doc.id,

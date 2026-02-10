@@ -1,4 +1,4 @@
-import {
+﻿import {
   Badge,
   Box,
   Button,
@@ -31,7 +31,7 @@ import {
   Switch,
   Icon
 } from "@chakra-ui/react";
-import { FiAlertTriangle, FiCheckCircle, FiChevronLeft, FiChevronRight, FiDatabase, FiDownload, FiFileText } from "react-icons/fi";
+import { FiAlertTriangle, FiCheckCircle, FiChevronLeft, FiChevronRight, FiDatabase, FiDownload, FiFileText, FiShield, FiEye, FiSend, FiRefreshCw, FiGrid, FiActivity, FiLayers } from "react-icons/fi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -154,7 +154,7 @@ export default function DocumentReviewPage() {
     }
   });
 
-  // ── Derived values (null-safe so hooks always run in the same order) ──
+  // â”€â”€ Derived values (null-safe so hooks always run in the same order) â”€â”€
   const classification = data?.classification;
   const validation = data?.validation;
   const quality_metrics = data?.quality_metrics;
@@ -202,7 +202,7 @@ export default function DocumentReviewPage() {
       .filter((value) => Number.isFinite(value) && value > 0)
       .sort((a, b) => a - b);
     if (values.length < 8) {
-      // Not enough data — use median × 10 as a sensible dynamic fallback
+      // Not enough data â€” use median Ã— 10 as a sensible dynamic fallback
       const median = values.length > 0 ? values[Math.floor(values.length / 2)] : 0;
       return median > 0 ? median * 10 : values[values.length - 1] ?? 1000;
     }
@@ -383,7 +383,7 @@ export default function DocumentReviewPage() {
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       ctx.fillStyle = "rgba(255,255,255,0.85)";
-      ctx.fillText(label.length > 28 ? label.slice(0, 26) + "…" : label, x, y + r + 2);
+      ctx.fillText(label.length > 28 ? label.slice(0, 26) + "â€¦" : label, x, y + r + 2);
     },
     [],
   );
@@ -430,7 +430,7 @@ export default function DocumentReviewPage() {
     return () => window.clearTimeout(timer);
   }, [isPdf, highlightText, pageNumber]);
 
-  // ── Dynamic integrity check: uses backend-computed discrepancy OR anomalies OR local comparison ──
+  // â”€â”€ Dynamic integrity check: uses backend-computed discrepancy OR anomalies OR local comparison â”€â”€
   const integrityCheck = useMemo(() => {
     // Priority 1: Backend computed metadata_discrepancy (from normalizer, real-time)
     const disc = extractedFields.metadata_discrepancy as
@@ -462,7 +462,7 @@ export default function DocumentReviewPage() {
         const ratio = typeof details?.ratio === "number" ? (details.ratio as number) : (cc !== 0 ? Math.abs(hc / cc) : Infinity);
         return { reportedClosing: hc, calculatedClosing: cc, discrepancy, ratio, isFraud: true };
       }
-      // Anomaly exists but no structured data — still flag as fraud
+      // Anomaly exists but no structured data â€” still flag as fraud
       return { reportedClosing: null, calculatedClosing: null, discrepancy: null, ratio: null, isFraud: true };
     }
 
@@ -483,7 +483,7 @@ export default function DocumentReviewPage() {
     return { reportedClosing, calculatedClosing, discrepancy, ratio, isFraud };
   }, [transactions, extractedFields.closing_balance, extractedFields.metadata_discrepancy, anomalies]);
 
-  // ── Early returns (AFTER all hooks to satisfy React rules) ──
+  // â”€â”€ Early returns (AFTER all hooks to satisfy React rules) â”€â”€
   if (!docId) {
     return <Text>Missing document id.</Text>;
   }
@@ -514,47 +514,107 @@ export default function DocumentReviewPage() {
     );
   };
 
+
   return (
-    <VStack align="stretch" spacing={6}>
+    <VStack align="stretch" spacing={8}>
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/*  HEADER                                                        */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <Box
-        p={[4, 6]}
+        position="relative"
+        p={[5, 8]}
         borderRadius="24px"
-        bg="linear-gradient(120deg, rgba(155,140,255,0.18), rgba(15,17,26,0.95))"
+        bg="linear-gradient(135deg, rgba(155,140,255,0.20) 0%, rgba(72,187,120,0.06) 50%, rgba(15,17,26,0.97) 100%)"
         border="1px solid"
-        borderColor="whiteAlpha.100"
+        borderColor="whiteAlpha.150"
+        boxShadow="0 8px 32px rgba(0,0,0,0.4)"
+        overflow="hidden"
       >
-        <Text fontSize="xs" color="aurora.violet" textTransform="uppercase" letterSpacing="0.2em">
-          Inspector
-        </Text>
-        <Heading size="lg" mb={2}>
+        {/* decorative radial glow */}
+        <Box
+          position="absolute"
+          top="-60px"
+          right="-60px"
+          w="300px"
+          h="300px"
+          bg="radial-gradient(circle, rgba(155,140,255,0.12) 0%, transparent 70%)"
+          pointerEvents="none"
+        />
+
+        <HStack spacing={3} mb={3}>
+          <Icon as={FiShield} color="aurora.violet" boxSize={5} />
+          <Text
+            fontSize="xs"
+            color="aurora.violet"
+            textTransform="uppercase"
+            letterSpacing="0.25em"
+            fontWeight="bold"
+          >
+            Document Inspector
+          </Text>
+        </HStack>
+
+        <Heading size="lg" mb={4} letterSpacing="-0.02em">
           {data.filename}
         </Heading>
-        <HStack spacing={3} flexWrap="wrap">
-          <Badge colorScheme="purple">{classification.type}</Badge>
-          <Badge colorScheme={classification.confidence >= 0.8 ? "green" : "orange"}>
-            {Math.round(classification.confidence * 100)}% confidence
+
+        <HStack spacing={3} flexWrap="wrap" mb={4}>
+          <Badge colorScheme="purple" px={3} py={1} borderRadius="full" fontSize="xs">
+            <HStack spacing={1.5}>
+              <Icon as={FiFileText} boxSize={3} />
+              <Text>{classification.type}</Text>
+            </HStack>
           </Badge>
-          <Badge colorScheme={data.status === "review" ? "orange" : "green"}>
+          <Badge
+            colorScheme={classification.confidence >= 0.8 ? "green" : "orange"}
+            px={3}
+            py={1}
+            borderRadius="full"
+            fontSize="xs"
+          >
+            <HStack spacing={1.5}>
+              <Icon as={FiActivity} boxSize={3} />
+              <Text>{Math.round(classification.confidence * 100)}% confidence</Text>
+            </HStack>
+          </Badge>
+          <Badge
+            colorScheme={data.status === "review" ? "orange" : "green"}
+            px={3}
+            py={1}
+            borderRadius="full"
+            fontSize="xs"
+          >
             {data.status.toUpperCase()}
           </Badge>
           {anomalies && anomalies.length > 0 && (
-            <Badge colorScheme="red" variant="subtle">
-              {anomalies.length} anomalies
+            <Badge colorScheme="red" variant="subtle" px={3} py={1} borderRadius="full" fontSize="xs">
+              <HStack spacing={1.5}>
+                <Icon as={FiAlertTriangle} boxSize={3} />
+                <Text>{anomalies.length} anomalies</Text>
+              </HStack>
             </Badge>
           )}
           {txRecords && txRecords.length > 0 && (
-            <Badge colorScheme="blue" variant="subtle">
-              {txRecords.length} transactions
+            <Badge colorScheme="blue" variant="subtle" px={3} py={1} borderRadius="full" fontSize="xs">
+              <HStack spacing={1.5}>
+                <Icon as={FiDatabase} boxSize={3} />
+                <Text>{txRecords.length} transactions</Text>
+              </HStack>
             </Badge>
           )}
         </HStack>
-        <Text fontSize="sm" color="whiteAlpha.700" mt={3}>
+
+        <Text fontSize="sm" color="whiteAlpha.500" maxW="640px">
           Cross-validate extracted fields, audit anomalies, and approve or correct
           the structured output.
         </Text>
       </Box>
 
-      <SimpleGrid columns={[1, null, 2]} spacing={6}>
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/*  MAIN 2-COL LAYOUT                                             */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      <SimpleGrid columns={[1, null, 2]} spacing={8}>
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ LEFT COLUMN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <Box>
           <Box
             borderRadius="24px"
@@ -563,14 +623,28 @@ export default function DocumentReviewPage() {
             overflow="hidden"
             minH="520px"
             bg="obsidian.900"
-            boxShadow="soft"
+            boxShadow="0 4px 24px rgba(0,0,0,0.3)"
           >
             {isPdf ? (
-              <VStack align="stretch" spacing={2} p={3} height="100%">
-                <HStack justify="space-between">
-                  <Text fontSize="xs" color="whiteAlpha.600">
-                    Evidence Bridge · Highlight: {highlightText || "Select a row"}
-                  </Text>
+              /* â”€â”€ PDF Evidence Bridge â”€â”€ */
+              <VStack align="stretch" spacing={0} height="100%">
+                <HStack
+                  justify="space-between"
+                  px={4}
+                  py={3}
+                  bg="whiteAlpha.50"
+                  borderBottom="1px solid"
+                  borderColor="whiteAlpha.100"
+                >
+                  <HStack spacing={2}>
+                    <Icon as={FiEye} color="aurora.violet" boxSize={4} />
+                    <Text fontSize="xs" fontWeight="semibold" color="whiteAlpha.800">
+                      Evidence Bridge
+                    </Text>
+                    <Text fontSize="xs" color="whiteAlpha.500">
+                      Â· {highlightText || "Select a row to highlight"}
+                    </Text>
+                  </HStack>
                   <HStack spacing={1}>
                     <IconButton
                       aria-label="Previous page"
@@ -580,9 +654,15 @@ export default function DocumentReviewPage() {
                       onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
                       isDisabled={pageNumber <= 1}
                     />
-                    <Text fontSize="xs" color="whiteAlpha.600">
+                    <Badge
+                      variant="subtle"
+                      colorScheme="purple"
+                      fontSize="2xs"
+                      borderRadius="full"
+                      px={2}
+                    >
                       {pageNumber} / {numPages}
-                    </Text>
+                    </Badge>
                     <IconButton
                       aria-label="Next page"
                       icon={<FiChevronRight />}
@@ -593,7 +673,7 @@ export default function DocumentReviewPage() {
                     />
                   </HStack>
                 </HStack>
-                <Box ref={pdfContainerRef} overflowY="auto" flex="1">
+                <Box ref={pdfContainerRef} overflowY="auto" flex="1" p={2}>
                   <Document
                     file={`/api/documents/${encodeURIComponent(data.document_id)}/file`}
                     onLoadSuccess={(info) => {
@@ -604,21 +684,29 @@ export default function DocumentReviewPage() {
                     onLoadError={(err) => setPdfError(err?.message ?? "Failed to load PDF")}
                     onSourceError={(err) => setPdfError(err?.message ?? "Failed to load PDF")}
                     loading={
-                      <HStack spacing={2} color="whiteAlpha.600" p={3}>
-                        <Spinner size="sm" />
-                        <Text fontSize="sm">Loading evidence...</Text>
-                      </HStack>
+                      <VStack spacing={3} color="whiteAlpha.600" p={8} justify="center" minH="400px">
+                        <Spinner size="lg" color="aurora.violet" thickness="3px" />
+                        <Text fontSize="sm">Loading evidence documentâ€¦</Text>
+                      </VStack>
                     }
                   >
                     {pdfError ? (
-                      <VStack align="stretch" spacing={2} p={3}>
-                        <Text fontSize="sm" color="red.300">
+                      <VStack align="center" spacing={4} p={8} minH="400px" justify="center">
+                        <Icon as={FiAlertTriangle} boxSize={8} color="red.400" />
+                        <Text fontSize="sm" color="red.300" textAlign="center">
                           {pdfError}
                         </Text>
                         <Button
-                          size="xs"
+                          size="sm"
                           variant="outline"
-                          onClick={() => window.open(`/api/documents/${encodeURIComponent(data.document_id)}/file`, "_blank")}
+                          colorScheme="red"
+                          leftIcon={<FiDownload />}
+                          onClick={() =>
+                            window.open(
+                              `/api/documents/${encodeURIComponent(data.document_id)}/file`,
+                              "_blank"
+                            )
+                          }
                         >
                           Open PDF in new tab
                         </Button>
@@ -635,61 +723,104 @@ export default function DocumentReviewPage() {
                 </Box>
               </VStack>
             ) : isExcel ? (
-              <VStack spacing={4} justify="center" height="100%" p={6}>
+              /* â”€â”€ Excel Integrity Check â”€â”€ */
+              <VStack spacing={5} justify="center" height="100%" p={6}>
                 {integrityCheck && integrityCheck.isFraud ? (
+                  /* FRAUD STATE */
                   <Box
                     border="2px solid"
                     borderColor="red.500"
-                    borderRadius="xl"
+                    borderRadius="20px"
                     p={6}
                     width="100%"
                     bg="rgba(255,0,0,0.06)"
+                    boxShadow="0 0 40px rgba(255,50,50,0.08)"
+                    position="relative"
+                    overflow="hidden"
                   >
+                    {/* decorative red glow */}
+                    <Box
+                      position="absolute"
+                      top="-40px"
+                      left="50%"
+                      transform="translateX(-50%)"
+                      w="200px"
+                      h="200px"
+                      bg="radial-gradient(circle, rgba(255,107,107,0.1) 0%, transparent 70%)"
+                      pointerEvents="none"
+                    />
                     <VStack spacing={4}>
-                      <Icon as={FiAlertTriangle} w={12} h={12} color="red.400" />
-                      <Badge colorScheme="red" fontSize="md" px={4} py={1} borderRadius="full">
+                      <Icon as={FiAlertTriangle} w={14} h={14} color="red.400" />
+                      <Badge
+                        colorScheme="red"
+                        fontSize="sm"
+                        px={5}
+                        py={1.5}
+                        borderRadius="full"
+                        fontWeight="bold"
+                        letterSpacing="0.05em"
+                      >
                         INTEGRITY FAILURE
                       </Badge>
-                      <Text color="red.300" fontSize="sm" textAlign="center">
+                      <Text color="red.300" fontSize="sm" textAlign="center" maxW="360px">
                         The reported closing balance does not match the balance
                         calculated from transaction rows.
                       </Text>
                       <Divider borderColor="red.800" />
-                      {integrityCheck.reportedClosing !== null && integrityCheck.calculatedClosing !== null ? (
+                      {integrityCheck.reportedClosing !== null &&
+                      integrityCheck.calculatedClosing !== null ? (
                         <>
                           <SimpleGrid columns={2} spacing={6} width="100%">
                             <Stat textAlign="center">
-                              <StatLabel color="red.400" fontSize="xs">Reported Closing</StatLabel>
+                              <StatLabel color="red.400" fontSize="xs">
+                                Reported Closing
+                              </StatLabel>
                               <StatNumber fontSize="xl" color="red.300">
-                                {integrityCheck.reportedClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {integrityCheck.reportedClosing.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                })}
                               </StatNumber>
-                              <StatHelpText color="red.500">From document header</StatHelpText>
+                              <StatHelpText color="red.500" fontSize="2xs">
+                                From document header
+                              </StatHelpText>
                             </Stat>
                             <Stat textAlign="center">
-                              <StatLabel color="green.400" fontSize="xs">Calculated Closing</StatLabel>
+                              <StatLabel color="green.400" fontSize="xs">
+                                Calculated Closing
+                              </StatLabel>
                               <StatNumber fontSize="xl" color="green.300">
-                                {integrityCheck.calculatedClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {integrityCheck.calculatedClosing.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                })}
                               </StatNumber>
-                              <StatHelpText color="green.500">From transaction rows</StatHelpText>
+                              <StatHelpText color="green.500" fontSize="2xs">
+                                From transaction rows
+                              </StatHelpText>
                             </Stat>
                           </SimpleGrid>
                           <Divider borderColor="red.800" />
                           <SimpleGrid columns={2} spacing={4} width="100%">
                             <Stat textAlign="center">
-                              <StatLabel color="whiteAlpha.600" fontSize="xs">Discrepancy</StatLabel>
+                              <StatLabel color="whiteAlpha.600" fontSize="xs">
+                                Discrepancy
+                              </StatLabel>
                               <StatNumber fontSize="md" color="orange.300">
                                 {integrityCheck.discrepancy !== null
-                                  ? integrityCheck.discrepancy.toLocaleString(undefined, { minimumFractionDigits: 2 })
+                                  ? integrityCheck.discrepancy.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                    })
                                   : "-"}
                               </StatNumber>
                             </Stat>
                             <Stat textAlign="center">
-                              <StatLabel color="whiteAlpha.600" fontSize="xs">Ratio</StatLabel>
+                              <StatLabel color="whiteAlpha.600" fontSize="xs">
+                                Ratio
+                              </StatLabel>
                               <StatNumber fontSize="md" color="orange.300">
                                 {integrityCheck.ratio === null
                                   ? "-"
                                   : integrityCheck.ratio === Infinity
-                                    ? "∞"
+                                    ? "âˆž"
                                     : `${integrityCheck.ratio.toFixed(1)}x`}
                               </StatNumber>
                             </Stat>
@@ -703,27 +834,31 @@ export default function DocumentReviewPage() {
                     </VStack>
                   </Box>
                 ) : (
+                  /* VERIFIED / DIGITAL LEDGER STATE */
                   <Box
                     border="2px dashed"
-                    borderColor={integrityCheck ? "green.700" : "gray.700"}
-                    borderRadius="xl"
+                    borderColor={integrityCheck ? "green.700" : "whiteAlpha.200"}
+                    borderRadius="20px"
                     p={6}
                     width="100%"
                     textAlign="center"
+                    bg={integrityCheck ? "rgba(72,187,120,0.04)" : "whiteAlpha.50"}
                   >
                     <VStack spacing={4}>
                       <Icon
                         as={integrityCheck ? FiCheckCircle : FiDatabase}
-                        w={12}
-                        h={12}
-                        color={integrityCheck ? "green.400" : "gray.400"}
+                        w={14}
+                        h={14}
+                        color={integrityCheck ? "green.400" : "whiteAlpha.400"}
                       />
                       <Badge
                         colorScheme={integrityCheck ? "green" : "gray"}
                         fontSize="sm"
-                        px={3}
-                        py={1}
+                        px={4}
+                        py={1.5}
                         borderRadius="full"
+                        fontWeight="bold"
+                        letterSpacing="0.05em"
                       >
                         {integrityCheck ? "INTEGRITY VERIFIED" : "DIGITAL LEDGER"}
                       </Badge>
@@ -734,68 +869,119 @@ export default function DocumentReviewPage() {
                           </Text>
                           <SimpleGrid columns={2} spacing={4} width="100%">
                             <Stat textAlign="center">
-                              <StatLabel color="whiteAlpha.600" fontSize="xs">Reported</StatLabel>
+                              <StatLabel color="whiteAlpha.600" fontSize="xs">
+                                Reported
+                              </StatLabel>
                               <StatNumber fontSize="md" color="green.300">
-                                {integrityCheck.reportedClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {integrityCheck.reportedClosing.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                })}
                               </StatNumber>
                             </Stat>
                             <Stat textAlign="center">
-                              <StatLabel color="whiteAlpha.600" fontSize="xs">Calculated</StatLabel>
+                              <StatLabel color="whiteAlpha.600" fontSize="xs">
+                                Calculated
+                              </StatLabel>
                               <StatNumber fontSize="md" color="green.300">
-                                {integrityCheck.calculatedClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {integrityCheck.calculatedClosing.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                })}
                               </StatNumber>
                             </Stat>
                           </SimpleGrid>
                         </>
                       ) : (
-                        <Text color="gray.400" fontSize="sm">
-                          Structured Excel data — no image preview needed
+                        <Text color="whiteAlpha.500" fontSize="sm">
+                          Structured Excel data â€” no image preview needed
                         </Text>
                       )}
                     </VStack>
                   </Box>
                 )}
+
+                {/* Balance summary row */}
                 <SimpleGrid columns={2} spacing={4} width="100%">
-                  <Stat textAlign="center">
-                    <StatLabel color="whiteAlpha.600" fontSize="xs">Opening Balance</StatLabel>
+                  <Stat
+                    textAlign="center"
+                    p={4}
+                    borderRadius="16px"
+                    bg="whiteAlpha.50"
+                    border="1px solid"
+                    borderColor="whiteAlpha.100"
+                  >
+                    <StatLabel color="whiteAlpha.600" fontSize="xs">
+                      Opening Balance
+                    </StatLabel>
                     <StatNumber fontSize="md" color="blue.300">
                       {typeof extractedFields.opening_balance === "number"
-                        ? extractedFields.opening_balance.toLocaleString(undefined, { minimumFractionDigits: 2 })
+                        ? extractedFields.opening_balance.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })
                         : "-"}
                     </StatNumber>
                   </Stat>
-                  <Stat textAlign="center">
-                    <StatLabel color="whiteAlpha.600" fontSize="xs">Transactions</StatLabel>
+                  <Stat
+                    textAlign="center"
+                    p={4}
+                    borderRadius="16px"
+                    bg="whiteAlpha.50"
+                    border="1px solid"
+                    borderColor="whiteAlpha.100"
+                  >
+                    <StatLabel color="whiteAlpha.600" fontSize="xs">
+                      Transactions
+                    </StatLabel>
                     <StatNumber fontSize="md" color="purple.300">
                       {transactionSummary.count}
                     </StatNumber>
                   </Stat>
                 </SimpleGrid>
+
                 <Button
                   leftIcon={<FiDownload />}
                   colorScheme={integrityCheck?.isFraud ? "red" : "green"}
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(`/api/documents/${encodeURIComponent(data.document_id)}/file`, "_blank")}
+                  borderRadius="full"
+                  onClick={() =>
+                    window.open(
+                      `/api/documents/${encodeURIComponent(data.document_id)}/file`,
+                      "_blank"
+                    )
+                  }
                 >
                   Download Original File
                 </Button>
               </VStack>
             ) : (
-              <VStack align="stretch" spacing={3} p={6} height="100%" justify="center">
-                <Icon as={FiFileText} w={10} h={10} color="purple.400" />
+              /* â”€â”€ Generic file preview â”€â”€ */
+              <VStack align="center" spacing={4} p={8} height="100%" justify="center">
+                <Box
+                  p={4}
+                  borderRadius="full"
+                  bg="whiteAlpha.50"
+                  border="1px solid"
+                  borderColor="whiteAlpha.100"
+                >
+                  <Icon as={FiFileText} w={10} h={10} color="purple.400" />
+                </Box>
                 <Heading size="sm">Evidence preview unavailable</Heading>
-                <Text fontSize="sm" color="whiteAlpha.700">
-                  This file format does not support in-browser preview.
-                  Use the transaction intelligence panel to audit the extracted rows.
+                <Text fontSize="sm" color="whiteAlpha.600" textAlign="center" maxW="280px">
+                  This file format does not support in-browser preview. Use the
+                  transaction intelligence panel to audit the extracted rows.
                 </Text>
                 <Button
                   leftIcon={<FiDownload />}
                   size="sm"
                   colorScheme="purple"
                   variant="outline"
-                  alignSelf="flex-start"
-                  onClick={() => window.open(`/api/documents/${encodeURIComponent(data.document_id)}/file`, "_blank")}
+                  borderRadius="full"
+                  onClick={() =>
+                    window.open(
+                      `/api/documents/${encodeURIComponent(data.document_id)}/file`,
+                      "_blank"
+                    )
+                  }
                 >
                   Open original file
                 </Button>
@@ -804,174 +990,351 @@ export default function DocumentReviewPage() {
           </Box>
         </Box>
 
-        <VStack align="stretch" spacing={5}>
+        {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ RIGHT COLUMN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <VStack align="stretch" spacing={6}>
+          {/* â”€â”€ Validation Status â”€â”€ */}
           <Box
-            p={5}
+            p={6}
             borderRadius="24px"
             bg="whiteAlpha.50"
             border="1px solid"
-            borderColor="whiteAlpha.100"
+            borderColor={validation.valid ? "rgba(72,187,120,0.2)" : "rgba(255,184,108,0.2)"}
             boxShadow="soft"
           >
             <HStack justify="space-between" mb={4}>
-              <Heading size="sm">Validation status</Heading>
-              <Badge colorScheme={validation.valid ? "green" : "orange"}>
+              <HStack spacing={2}>
+                <Icon
+                  as={validation.valid ? FiCheckCircle : FiAlertTriangle}
+                  color={validation.valid ? "green.400" : "orange.400"}
+                  boxSize={5}
+                />
+                <Heading size="sm">Validation Status</Heading>
+              </HStack>
+              <Badge
+                colorScheme={validation.valid ? "green" : "orange"}
+                px={3}
+                py={1}
+                borderRadius="full"
+                fontSize="xs"
+                fontWeight="bold"
+              >
                 {validation.valid ? "PASS" : "REVIEW"}
               </Badge>
             </HStack>
-            <Text fontSize="sm" color="whiteAlpha.700" mb={2}>
-              {validation.errors.length} errors · {validation.warnings.length} warnings
-            </Text>
+
+            <HStack spacing={4} mb={3}>
+              <Text fontSize="xs" color="whiteAlpha.600">
+                {validation.errors.length} errors
+              </Text>
+              <Text fontSize="xs" color="whiteAlpha.600">
+                Â·
+              </Text>
+              <Text fontSize="xs" color="whiteAlpha.600">
+                {validation.warnings.length} warnings
+              </Text>
+            </HStack>
+
             {quality_metrics?.warnings && (
-              <Box mb={3}>
-                <Text fontSize="xs" color="whiteAlpha.600" mb={1}>
-                  Quality alerts
+              <Box
+                mb={4}
+                p={3}
+                borderRadius="12px"
+                bg="rgba(255,184,108,0.06)"
+                border="1px solid"
+                borderColor="rgba(255,184,108,0.12)"
+              >
+                <Text fontSize="xs" color="orange.400" fontWeight="semibold" mb={2}>
+                  Quality Alerts
                 </Text>
                 <VStack align="stretch" spacing={1}>
                   {(quality_metrics.warnings as string[]).map((w, idx) => (
                     <Text key={`q-${idx}`} fontSize="xs" color="orange.300">
-                      • {w}
+                      â€¢ {w}
                     </Text>
                   ))}
                 </VStack>
               </Box>
             )}
-            <VStack align="stretch" spacing={2}>
-              {validation.errors.map((err, idx) => (
-                <Text key={`e-${idx}`} fontSize="xs" color="red.300">
-                  • {(err as { message?: string }).message ?? JSON.stringify(err)}
-                </Text>
-              ))}
-              {validation.warnings.map((w, idx) => (
-                <Text key={`w-${idx}`} fontSize="xs" color="yellow.300">
-                  • {(w as { message?: string }).message ?? JSON.stringify(w)}
-                </Text>
-              ))}
-            </VStack>
-            <Button
-              mt={4}
-              size="sm"
-              colorScheme="green"
-              onClick={() => approveMutation.mutate()}
-              isLoading={approveMutation.isPending}
-            >
-              Approve extraction
-            </Button>
-            <Button
-              mt={2}
-              size="xs"
-              variant="outline"
-              onClick={() => reanalyzeMutation.mutate()}
-              isLoading={reanalyzeMutation.isPending}
-            >
-              Re-run AI analysis
-            </Button>
-            <Button
-              mt={2}
-              size="xs"
-              variant="outline"
-              colorScheme="cyan"
-              leftIcon={<FiDownload />}
-              onClick={() => {
-                window.open(`/api/reports/${docId}/html`, "_blank");
-              }}
-            >
-              Download Report
-            </Button>
+
+            {(validation.errors.length > 0 || validation.warnings.length > 0) && (
+              <Box maxH="180px" overflowY="auto" mb={4}>
+                <VStack align="stretch" spacing={1.5}>
+                  {validation.errors.map((err, idx) => (
+                    <HStack key={`e-${idx}`} spacing={2} align="flex-start">
+                      <Box w="6px" h="6px" borderRadius="full" bg="red.400" mt={1.5} flexShrink={0} />
+                      <Text fontSize="xs" color="red.300">
+                        {(err as { message?: string }).message ?? JSON.stringify(err)}
+                      </Text>
+                    </HStack>
+                  ))}
+                  {validation.warnings.map((w, idx) => (
+                    <HStack key={`w-${idx}`} spacing={2} align="flex-start">
+                      <Box w="6px" h="6px" borderRadius="full" bg="yellow.400" mt={1.5} flexShrink={0} />
+                      <Text fontSize="xs" color="yellow.300">
+                        {(w as { message?: string }).message ?? JSON.stringify(w)}
+                      </Text>
+                    </HStack>
+                  ))}
+                </VStack>
+              </Box>
+            )}
+
+            <Divider borderColor="whiteAlpha.100" mb={4} />
+
+            <HStack spacing={3} flexWrap="wrap">
+              <Button
+                size="sm"
+                colorScheme="green"
+                borderRadius="full"
+                leftIcon={<FiCheckCircle />}
+                onClick={() => approveMutation.mutate()}
+                isLoading={approveMutation.isPending}
+              >
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                borderRadius="full"
+                leftIcon={<FiRefreshCw />}
+                onClick={() => reanalyzeMutation.mutate()}
+                isLoading={reanalyzeMutation.isPending}
+              >
+                Re-run Analysis
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                colorScheme="cyan"
+                borderRadius="full"
+                leftIcon={<FiDownload />}
+                onClick={() => {
+                  window.open(`/api/reports/${docId}/html`, "_blank");
+                }}
+              >
+                Report
+              </Button>
+            </HStack>
           </Box>
 
+          {/* â”€â”€ Layout Signals â”€â”€ */}
           <Box
-            p={5}
+            p={6}
             borderRadius="24px"
             bg="whiteAlpha.50"
             border="1px solid"
             borderColor="whiteAlpha.100"
             boxShadow="soft"
           >
-            <Heading size="sm" mb={3}>
-              Layout signals
-            </Heading>
-            <HStack spacing={2} flexWrap="wrap">
-              {layout?.tables && <Badge colorScheme="purple">Tables</Badge>}
-              {layout?.handwriting && <Badge colorScheme="orange">Handwriting</Badge>}
-              {layout?.stamps && <Badge colorScheme="pink">Stamps</Badge>}
-              {layout?.signatures && <Badge colorScheme="blue">Signatures</Badge>}
-              {layout?.headers && <Badge colorScheme="teal">Headers</Badge>}
-              {!layout && <Text fontSize="xs">No layout metadata.</Text>}
+            <HStack spacing={2} mb={4}>
+              <Icon as={FiLayers} color="purple.400" boxSize={5} />
+              <Heading size="sm">Layout Signals</Heading>
             </HStack>
-            <Text fontSize="xs" color="whiteAlpha.600" mt={2}>
-              Quality score: {typeof quality_metrics?.score === "number" ? `${Math.round(quality_metrics.score * 100)}%` : "-"}
-            </Text>
+            <HStack spacing={2} flexWrap="wrap" mb={3}>
+              {layout?.tables && (
+                <Badge colorScheme="purple" variant="subtle" borderRadius="full" px={3}>
+                  Tables
+                </Badge>
+              )}
+              {layout?.handwriting && (
+                <Badge colorScheme="orange" variant="subtle" borderRadius="full" px={3}>
+                  Handwriting
+                </Badge>
+              )}
+              {layout?.stamps && (
+                <Badge colorScheme="pink" variant="subtle" borderRadius="full" px={3}>
+                  Stamps
+                </Badge>
+              )}
+              {layout?.signatures && (
+                <Badge colorScheme="blue" variant="subtle" borderRadius="full" px={3}>
+                  Signatures
+                </Badge>
+              )}
+              {layout?.headers && (
+                <Badge colorScheme="teal" variant="subtle" borderRadius="full" px={3}>
+                  Headers
+                </Badge>
+              )}
+              {!layout && (
+                <Text fontSize="xs" color="whiteAlpha.500">
+                  No layout metadata detected.
+                </Text>
+              )}
+            </HStack>
+            <HStack spacing={2} align="center">
+              <Text fontSize="xs" color="whiteAlpha.500">
+                Quality score
+              </Text>
+              <Box flex="1" h="4px" borderRadius="full" bg="whiteAlpha.100" overflow="hidden">
+                <Box
+                  h="100%"
+                  borderRadius="full"
+                  bg={
+                    typeof quality_metrics?.score === "number"
+                      ? quality_metrics.score >= 0.8
+                        ? "green.400"
+                        : quality_metrics.score >= 0.5
+                          ? "orange.400"
+                          : "red.400"
+                      : "whiteAlpha.200"
+                  }
+                  w={
+                    typeof quality_metrics?.score === "number"
+                      ? `${Math.round(quality_metrics.score * 100)}%`
+                      : "0%"
+                  }
+                  transition="width 0.5s ease"
+                />
+              </Box>
+              <Text fontSize="xs" color="whiteAlpha.600" fontWeight="semibold">
+                {typeof quality_metrics?.score === "number"
+                  ? `${Math.round(quality_metrics.score * 100)}%`
+                  : "-"}
+              </Text>
+            </HStack>
           </Box>
 
+          {/* â”€â”€ Statement Intelligence (bank_statement only) â”€â”€ */}
           {isBankStatement && (
             <Box
-              p={5}
+              p={6}
               borderRadius="24px"
               bg="whiteAlpha.50"
               border="1px solid"
               borderColor="whiteAlpha.100"
               boxShadow="soft"
             >
-              <HStack justify="space-between" mb={4}>
-                <Heading size="sm">Statement intelligence</Heading>
-                <Badge colorScheme="purple">Excel-first</Badge>
+              <HStack justify="space-between" mb={5}>
+                <HStack spacing={2}>
+                  <Icon as={FiActivity} color="purple.400" boxSize={5} />
+                  <Heading size="sm">Statement Intelligence</Heading>
+                </HStack>
+                <Badge
+                  colorScheme="purple"
+                  variant="subtle"
+                  borderRadius="full"
+                  px={3}
+                  fontSize="2xs"
+                >
+                  Excel-first
+                </Badge>
               </HStack>
 
-              <SimpleGrid columns={[1, 2]} spacing={3} mb={4}>
-                <Stat p={3} borderRadius="16px" bg="whiteAlpha.100">
-                  <StatLabel>Transactions</StatLabel>
-                  <StatNumber>{transactionSummary.count}</StatNumber>
-                  <StatHelpText>rows parsed</StatHelpText>
+              <SimpleGrid columns={[1, 2]} spacing={4} mb={5}>
+                <Stat
+                  p={4}
+                  borderRadius="16px"
+                  bg="whiteAlpha.50"
+                  border="1px solid"
+                  borderColor="whiteAlpha.100"
+                >
+                  <StatLabel fontSize="xs" color="whiteAlpha.500">
+                    Transactions
+                  </StatLabel>
+                  <StatNumber fontSize="2xl">{transactionSummary.count}</StatNumber>
+                  <StatHelpText fontSize="2xs" color="whiteAlpha.400">
+                    rows parsed
+                  </StatHelpText>
                 </Stat>
-                <Stat p={3} borderRadius="16px" bg="whiteAlpha.100">
-                  <StatLabel>Net flow</StatLabel>
-                  <StatNumber>{transactionSummary.net.toFixed(2)}</StatNumber>
-                  <StatHelpText>{transactionSummary.totalIn.toFixed(2)} in / {transactionSummary.totalOut.toFixed(2)} out</StatHelpText>
+                <Stat
+                  p={4}
+                  borderRadius="16px"
+                  bg="whiteAlpha.50"
+                  border="1px solid"
+                  borderColor="whiteAlpha.100"
+                >
+                  <StatLabel fontSize="xs" color="whiteAlpha.500">
+                    Net flow
+                  </StatLabel>
+                  <StatNumber
+                    fontSize="2xl"
+                    color={transactionSummary.net >= 0 ? "green.300" : "red.300"}
+                  >
+                    {transactionSummary.net.toFixed(2)}
+                  </StatNumber>
+                  <StatHelpText fontSize="2xs" color="whiteAlpha.400">
+                    {transactionSummary.totalIn.toFixed(2)} in /{" "}
+                    {transactionSummary.totalOut.toFixed(2)} out
+                  </StatHelpText>
                 </Stat>
               </SimpleGrid>
 
-              <Tabs variant="soft-rounded" colorScheme="purple">
-                <TabList flexWrap="wrap" gap={2}>
-                  <Tab>Transactions</Tab>
-                  <Tab>Recon</Tab>
-                  <Tab>Benford</Tab>
-                  <Tab>Flow</Tab>
-                  <Tab>Balance</Tab>
+              <Tabs variant="soft-rounded" colorScheme="purple" size="sm">
+                <TabList flexWrap="wrap" gap={2} mb={1}>
+                  <Tab fontSize="xs">Transactions</Tab>
+                  <Tab fontSize="xs">Recon</Tab>
+                  <Tab fontSize="xs">Benford</Tab>
+                  <Tab fontSize="xs">Flow</Tab>
+                  <Tab fontSize="xs">Balance</Tab>
                 </TabList>
-                <TabPanels mt={3}>
+                <TabPanels mt={4}>
+                  {/* Transactions Tab */}
                   <TabPanel px={0}>
-                    <HStack spacing={3} mb={3} flexWrap="wrap">
+                    <HStack spacing={3} mb={4} flexWrap="wrap">
                       <Input
                         size="sm"
-                        placeholder="Search description"
+                        placeholder="Search descriptionâ€¦"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        borderRadius="full"
+                        bg="whiteAlpha.50"
+                        borderColor="whiteAlpha.100"
+                        _focus={{ borderColor: "purple.400", boxShadow: "0 0 0 1px var(--chakra-colors-purple-400)" }}
                       />
                       <Input
                         size="sm"
                         placeholder="Min amount"
                         value={minAmount}
                         onChange={(e) => setMinAmount(e.target.value)}
-                        maxW="160px"
+                        maxW="140px"
+                        borderRadius="full"
+                        bg="whiteAlpha.50"
+                        borderColor="whiteAlpha.100"
+                        _focus={{ borderColor: "purple.400", boxShadow: "0 0 0 1px var(--chakra-colors-purple-400)" }}
                       />
-                      <FormControl display="flex" alignItems="center" gap={2} maxW="180px">
-                        <FormLabel fontSize="xs" mb="0">
+                      <FormControl display="flex" alignItems="center" gap={2} maxW="160px">
+                        <FormLabel fontSize="xs" mb="0" color="whiteAlpha.600">
                           Anomalies
                         </FormLabel>
-                        <Switch size="sm" isChecked={showAnomalies} onChange={(e) => setShowAnomalies(e.target.checked)} />
+                        <Switch
+                          size="sm"
+                          colorScheme="red"
+                          isChecked={showAnomalies}
+                          onChange={(e) => setShowAnomalies(e.target.checked)}
+                        />
                       </FormControl>
                     </HStack>
-                    <Box maxH="260px" overflowY="auto">
+                    <Box
+                      maxH="280px"
+                      overflowY="auto"
+                      borderRadius="12px"
+                      border="1px solid"
+                      borderColor="whiteAlpha.100"
+                    >
                       <Table size="sm">
                         <Thead>
                           <Tr>
-                            <Th color="whiteAlpha.600">Date</Th>
-                            <Th color="whiteAlpha.600">Description</Th>
-                            <Th color="whiteAlpha.600" isNumeric>
+                            <Th color="whiteAlpha.500" fontSize="2xs" borderColor="whiteAlpha.100">
+                              Date
+                            </Th>
+                            <Th color="whiteAlpha.500" fontSize="2xs" borderColor="whiteAlpha.100">
+                              Description
+                            </Th>
+                            <Th
+                              color="whiteAlpha.500"
+                              fontSize="2xs"
+                              isNumeric
+                              borderColor="whiteAlpha.100"
+                            >
                               Amount
                             </Th>
-                            <Th color="whiteAlpha.600" isNumeric>
+                            <Th
+                              color="whiteAlpha.500"
+                              fontSize="2xs"
+                              isNumeric
+                              borderColor="whiteAlpha.100"
+                            >
                               Balance
                             </Th>
                           </Tr>
@@ -979,27 +1342,44 @@ export default function DocumentReviewPage() {
                         <Tbody>
                           {filteredTransactions.map((txn) => {
                             const amountAbs = Math.abs(txn.amount ?? 0);
-                            const isAnomaly = amountAbs >= amountThreshold || !txn.description || txn.balance === null;
+                            const isAnomaly =
+                              amountAbs >= amountThreshold ||
+                              !txn.description ||
+                              txn.balance === null;
                             return (
                               <Tr
                                 key={`txn-${txn.index}`}
-                                bg={isAnomaly ? "red.900" : undefined}
+                                bg={isAnomaly ? "rgba(255,107,107,0.08)" : undefined}
                                 cursor="pointer"
                                 onClick={() => setSelectedTxnIndex(txn.index)}
+                                _hover={{ bg: isAnomaly ? "rgba(255,107,107,0.14)" : "whiteAlpha.50" }}
+                                transition="background 0.15s"
                               >
-                                <Td>{txn.date || "-"}</Td>
-                                <Td>{txn.description || "(missing memo)"}</Td>
-                                <Td isNumeric color={txn.amount && txn.amount < 0 ? "orange.300" : "green.300"}>
+                                <Td fontSize="xs" borderColor="whiteAlpha.50">
+                                  {txn.date || "-"}
+                                </Td>
+                                <Td fontSize="xs" borderColor="whiteAlpha.50" maxW="180px" isTruncated>
+                                  {txn.description || "(missing memo)"}
+                                </Td>
+                                <Td
+                                  isNumeric
+                                  fontSize="xs"
+                                  borderColor="whiteAlpha.50"
+                                  color={txn.amount && txn.amount < 0 ? "orange.300" : "green.300"}
+                                  fontWeight="medium"
+                                >
                                   {typeof txn.amount === "number" ? txn.amount.toFixed(2) : "-"}
                                 </Td>
-                                <Td isNumeric>{typeof txn.balance === "number" ? txn.balance.toFixed(2) : "-"}</Td>
+                                <Td isNumeric fontSize="xs" borderColor="whiteAlpha.50">
+                                  {typeof txn.balance === "number" ? txn.balance.toFixed(2) : "-"}
+                                </Td>
                               </Tr>
                             );
                           })}
                           {filteredTransactions.length === 0 && (
                             <Tr>
-                              <Td colSpan={4}>
-                                <Text fontSize="sm" color="whiteAlpha.600">
+                              <Td colSpan={4} borderColor="whiteAlpha.50">
+                                <Text fontSize="sm" color="whiteAlpha.500" textAlign="center" py={4}>
                                   No transactions matched your filters.
                                 </Text>
                               </Td>
@@ -1009,37 +1389,74 @@ export default function DocumentReviewPage() {
                       </Table>
                     </Box>
                   </TabPanel>
+
+                  {/* Recon Tab */}
                   <TabPanel px={0}>
                     <VStack align="stretch" spacing={3}>
-                      <Text fontSize="sm" color="whiteAlpha.700">
-                        Reconciliation bridge ties each Excel row to evidence. Select a transaction to focus the audit trail.
+                      <Text fontSize="sm" color="whiteAlpha.600">
+                        Reconciliation bridge ties each Excel row to evidence. Select a
+                        transaction to focus the audit trail.
                       </Text>
-                      <Divider borderColor="whiteAlpha.200" />
+                      <Divider borderColor="whiteAlpha.100" />
                       {selectedTxnIndex === null ? (
-                        <Text fontSize="sm" color="whiteAlpha.600">
-                          Select a transaction from the table to view its reconciliation summary.
-                        </Text>
+                        <VStack py={6} spacing={3}>
+                          <Icon as={FiGrid} boxSize={6} color="whiteAlpha.300" />
+                          <Text fontSize="sm" color="whiteAlpha.500" textAlign="center">
+                            Select a transaction from the table to view its reconciliation
+                            summary.
+                          </Text>
+                        </VStack>
                       ) : (
-                        <Box p={4} borderRadius="16px" bg="whiteAlpha.100">
+                        <Box
+                          p={4}
+                          borderRadius="16px"
+                          bg="whiteAlpha.50"
+                          border="1px solid"
+                          borderColor="whiteAlpha.100"
+                        >
                           {evidenceAnchor ? (
-                            <VStack align="stretch" spacing={2}>
+                            <VStack align="stretch" spacing={3}>
                               <Text fontSize="sm" fontWeight="semibold">
-                                {evidenceAnchor.date} · {evidenceAnchor.description}
+                                {evidenceAnchor.date} Â· {evidenceAnchor.description}
                               </Text>
-                              <Text fontSize="xs" color="whiteAlpha.600">
-                                Amount: {evidenceAnchor.amount}
-                              </Text>
-                              <Text fontSize="xs" color="whiteAlpha.600">
-                                Balance: {evidenceAnchor.balance}
-                              </Text>
-                              <HStack spacing={2}>
-                                <Button size="xs" colorScheme="purple" alignSelf="flex-start">
+                              <SimpleGrid columns={2} spacing={2}>
+                                <HStack>
+                                  <Text fontSize="xs" color="whiteAlpha.500">
+                                    Amount:
+                                  </Text>
+                                  <Text fontSize="xs" fontWeight="medium">
+                                    {evidenceAnchor.amount}
+                                  </Text>
+                                </HStack>
+                                <HStack>
+                                  <Text fontSize="xs" color="whiteAlpha.500">
+                                    Balance:
+                                  </Text>
+                                  <Text fontSize="xs" fontWeight="medium">
+                                    {evidenceAnchor.balance}
+                                  </Text>
+                                </HStack>
+                              </SimpleGrid>
+                              <HStack spacing={2} pt={1}>
+                                <Button
+                                  size="xs"
+                                  colorScheme="purple"
+                                  borderRadius="full"
+                                  leftIcon={<FiCheckCircle />}
+                                >
                                   Tag as verified
                                 </Button>
                                 <Button
                                   size="xs"
                                   variant="outline"
-                                  onClick={() => window.open(`/api/documents/${encodeURIComponent(data.document_id)}/file`, "_blank")}
+                                  borderRadius="full"
+                                  leftIcon={<FiEye />}
+                                  onClick={() =>
+                                    window.open(
+                                      `/api/documents/${encodeURIComponent(data.document_id)}/file`,
+                                      "_blank"
+                                    )
+                                  }
                                 >
                                   Open evidence
                                 </Button>
@@ -1050,22 +1467,56 @@ export default function DocumentReviewPage() {
                       )}
                     </VStack>
                   </TabPanel>
+
+                  {/* Benford Tab */}
                   <TabPanel px={0}>
-                    <Box height="220px">
+                    <Box
+                      height="240px"
+                      p={3}
+                      borderRadius="16px"
+                      bg="whiteAlpha.50"
+                      border="1px solid"
+                      borderColor="whiteAlpha.100"
+                    >
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={benfordSeries} margin={{ left: 8, right: 8 }}>
-                          <XAxis dataKey="digit" tick={{ fill: "#C7C7D1", fontSize: 10 }} />
-                          <YAxis tick={{ fill: "#C7C7D1", fontSize: 10 }} />
-                          <RechartsTooltip />
+                        <BarChart data={benfordSeries} margin={{ left: 8, right: 8, top: 8 }}>
+                          <XAxis
+                            dataKey="digit"
+                            tick={{ fill: "#C7C7D1", fontSize: 10 }}
+                            axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                            tickLine={false}
+                          />
+                          <YAxis
+                            tick={{ fill: "#C7C7D1", fontSize: 10 }}
+                            axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                            tickLine={false}
+                          />
+                          <RechartsTooltip
+                            contentStyle={{
+                              background: "rgba(15,17,26,0.95)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              borderRadius: "12px",
+                              fontSize: "12px",
+                            }}
+                          />
                           <Legend />
-                          <Bar dataKey="observed" fill="#9B8CFF" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="expected" fill="#4FD1C5" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="observed" fill="#9B8CFF" radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="expected" fill="#4FD1C5" radius={[6, 6, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </Box>
                   </TabPanel>
+
+                  {/* Flow (Sankey) Tab */}
                   <TabPanel px={0}>
-                    <Box height="240px">
+                    <Box
+                      height="260px"
+                      p={3}
+                      borderRadius="16px"
+                      bg="whiteAlpha.50"
+                      border="1px solid"
+                      borderColor="whiteAlpha.100"
+                    >
                       <ResponsiveContainer width="100%" height="100%">
                         <Sankey
                           data={sankeyData}
@@ -1073,21 +1524,66 @@ export default function DocumentReviewPage() {
                           nodeWidth={12}
                           link={{ stroke: "#9B8CFF" }}
                         >
-                          <RechartsTooltip />
+                          <RechartsTooltip
+                            contentStyle={{
+                              background: "rgba(15,17,26,0.95)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              borderRadius: "12px",
+                              fontSize: "12px",
+                            }}
+                          />
                         </Sankey>
                       </ResponsiveContainer>
                     </Box>
                   </TabPanel>
+
+                  {/* Balance Tab */}
                   <TabPanel px={0}>
-                    <Box height="240px">
+                    <Box
+                      height="260px"
+                      p={3}
+                      borderRadius="16px"
+                      bg="whiteAlpha.50"
+                      border="1px solid"
+                      borderColor="whiteAlpha.100"
+                    >
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={balanceSeries} margin={{ left: 8, right: 8 }}>
-                          <XAxis dataKey="date" tick={{ fill: "#C7C7D1", fontSize: 9 }} />
-                          <YAxis tick={{ fill: "#C7C7D1", fontSize: 10 }} />
-                          <RechartsTooltip />
+                        <LineChart data={balanceSeries} margin={{ left: 8, right: 8, top: 8 }}>
+                          <XAxis
+                            dataKey="date"
+                            tick={{ fill: "#C7C7D1", fontSize: 9 }}
+                            axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                            tickLine={false}
+                          />
+                          <YAxis
+                            tick={{ fill: "#C7C7D1", fontSize: 10 }}
+                            axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
+                            tickLine={false}
+                          />
+                          <RechartsTooltip
+                            contentStyle={{
+                              background: "rgba(15,17,26,0.95)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              borderRadius: "12px",
+                              fontSize: "12px",
+                            }}
+                          />
                           <Legend />
-                          <Line type="monotone" dataKey="balance" stroke="#FF6B6B" dot={false} />
-                          <Line type="monotone" dataKey="expected" stroke="#9B8CFF" strokeDasharray="4 4" dot={false} />
+                          <Line
+                            type="monotone"
+                            dataKey="balance"
+                            stroke="#FF6B6B"
+                            dot={false}
+                            strokeWidth={2}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="expected"
+                            stroke="#9B8CFF"
+                            strokeDasharray="4 4"
+                            dot={false}
+                            strokeWidth={2}
+                          />
                         </LineChart>
                       </ResponsiveContainer>
                     </Box>
@@ -1097,161 +1593,226 @@ export default function DocumentReviewPage() {
             </Box>
           )}
 
+          {/* â”€â”€ Extracted Fields â”€â”€ */}
           <Box
-            p={5}
+            p={6}
             borderRadius="24px"
             bg="whiteAlpha.50"
             border="1px solid"
             borderColor="whiteAlpha.100"
             boxShadow="soft"
           >
-            <Heading size="sm" mb={3}>
-              Extracted fields
-            </Heading>
+            <HStack spacing={2} mb={4}>
+              <Icon as={FiGrid} color="blue.400" boxSize={5} />
+              <Heading size="sm">Extracted Fields</Heading>
+            </HStack>
             {(() => {
               const fieldEntries = Object.entries(extractedFields).filter(
                 ([key]) => key !== "transactions"
               );
               return (
-                <Table size="sm">
-                  <Thead>
-                    <Tr>
-                      <Th color="whiteAlpha.600">Field</Th>
-                      <Th color="whiteAlpha.600">Value</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {fieldEntries.map(([key, value]) => (
-                      <Tr key={key}>
-                        <Td>{key}</Td>
-                        <Td>{String(value)}</Td>
-                      </Tr>
-                    ))}
-                    {fieldEntries.length === 0 && (
+                <Box borderRadius="12px" border="1px solid" borderColor="whiteAlpha.100" overflow="hidden">
+                  <Table size="sm">
+                    <Thead>
                       <Tr>
-                        <Td colSpan={2}>
-                          <Text fontSize="sm" color="whiteAlpha.600">
-                            No structured fields available.
-                          </Text>
-                        </Td>
+                        <Th color="whiteAlpha.500" fontSize="2xs" bg="whiteAlpha.50" borderColor="whiteAlpha.100">
+                          Field
+                        </Th>
+                        <Th color="whiteAlpha.500" fontSize="2xs" bg="whiteAlpha.50" borderColor="whiteAlpha.100">
+                          Value
+                        </Th>
                       </Tr>
-                    )}
-                  </Tbody>
-                </Table>
+                    </Thead>
+                    <Tbody>
+                      {fieldEntries.map(([key, value], idx) => (
+                        <Tr key={key} bg={idx % 2 === 0 ? "transparent" : "whiteAlpha.25"} _hover={{ bg: "whiteAlpha.50" }}>
+                          <Td fontSize="xs" fontWeight="medium" color="whiteAlpha.700" borderColor="whiteAlpha.50">
+                            {key}
+                          </Td>
+                          <Td fontSize="xs" borderColor="whiteAlpha.50">
+                            {String(value)}
+                          </Td>
+                        </Tr>
+                      ))}
+                      {fieldEntries.length === 0 && (
+                        <Tr>
+                          <Td colSpan={2} borderColor="whiteAlpha.50">
+                            <Text fontSize="sm" color="whiteAlpha.500" textAlign="center" py={4}>
+                              No structured fields available.
+                            </Text>
+                          </Td>
+                        </Tr>
+                      )}
+                    </Tbody>
+                  </Table>
+                </Box>
               );
             })()}
           </Box>
 
+          {/* â”€â”€ Submit Correction â”€â”€ */}
           <Box
-            p={5}
+            p={6}
             borderRadius="24px"
             bg="whiteAlpha.50"
             border="1px solid"
             borderColor="whiteAlpha.100"
             boxShadow="soft"
           >
-            <Heading size="sm" mb={3}>
-              Submit correction
-            </Heading>
-            <VStack align="stretch" spacing={2}>
-              <Input
-                size="sm"
-                placeholder="Field name"
-                value={correction.field_name}
-                onChange={(e) =>
-                  setCorrection((c) => ({ ...c, field_name: e.target.value }))
-                }
-              />
-              <Input
-                size="sm"
-                placeholder="Original value"
-                value={correction.original_value}
-                onChange={(e) =>
-                  setCorrection((c) => ({ ...c, original_value: e.target.value }))
-                }
-              />
-              <Input
-                size="sm"
-                placeholder="Corrected value"
-                value={correction.corrected_value}
-                onChange={(e) =>
-                  setCorrection((c) => ({ ...c, corrected_value: e.target.value }))
-                }
-              />
+            <HStack spacing={2} mb={4}>
+              <Icon as={FiSend} color="purple.400" boxSize={5} />
+              <Heading size="sm">Submit Correction</Heading>
+            </HStack>
+            <VStack align="stretch" spacing={3}>
+              <FormControl>
+                <FormLabel fontSize="xs" color="whiteAlpha.500" mb={1}>
+                  Field name
+                </FormLabel>
+                <Input
+                  size="sm"
+                  placeholder="e.g. account_number"
+                  value={correction.field_name}
+                  onChange={(e) =>
+                    setCorrection((c) => ({ ...c, field_name: e.target.value }))
+                  }
+                  borderRadius="12px"
+                  bg="whiteAlpha.50"
+                  borderColor="whiteAlpha.100"
+                  _focus={{ borderColor: "purple.400", boxShadow: "0 0 0 1px var(--chakra-colors-purple-400)" }}
+                />
+              </FormControl>
+              <SimpleGrid columns={2} spacing={3}>
+                <FormControl>
+                  <FormLabel fontSize="xs" color="whiteAlpha.500" mb={1}>
+                    Original value
+                  </FormLabel>
+                  <Input
+                    size="sm"
+                    placeholder="Current value"
+                    value={correction.original_value}
+                    onChange={(e) =>
+                      setCorrection((c) => ({ ...c, original_value: e.target.value }))
+                    }
+                    borderRadius="12px"
+                    bg="whiteAlpha.50"
+                    borderColor="whiteAlpha.100"
+                    _focus={{ borderColor: "purple.400", boxShadow: "0 0 0 1px var(--chakra-colors-purple-400)" }}
+                  />
+                </FormControl>
+                <FormControl>
+                  <FormLabel fontSize="xs" color="whiteAlpha.500" mb={1}>
+                    Corrected value
+                  </FormLabel>
+                  <Input
+                    size="sm"
+                    placeholder="New value"
+                    value={correction.corrected_value}
+                    onChange={(e) =>
+                      setCorrection((c) => ({ ...c, corrected_value: e.target.value }))
+                    }
+                    borderRadius="12px"
+                    bg="whiteAlpha.50"
+                    borderColor="whiteAlpha.100"
+                    _focus={{ borderColor: "purple.400", boxShadow: "0 0 0 1px var(--chakra-colors-purple-400)" }}
+                  />
+                </FormControl>
+              </SimpleGrid>
               <Button
                 size="sm"
                 colorScheme="purple"
+                borderRadius="full"
+                leftIcon={<FiSend />}
                 alignSelf="flex-start"
                 isLoading={correctionMutation.isPending}
                 onClick={() => correctionMutation.mutate()}
                 isDisabled={!correction.field_name || !correction.corrected_value}
               >
-                Submit correction
+                Submit Correction
               </Button>
             </VStack>
           </Box>
 
-          {/* Forensic Anomaly Panel */}
+          {/* â”€â”€ Forensic Anomalies â”€â”€ */}
           {anomalies && anomalies.length > 0 && (
             <Box
-              p={5}
+              p={6}
               borderRadius="24px"
-              bg="rgba(255,107,107,0.06)"
+              bg="rgba(255,107,107,0.04)"
               border="1px solid"
-              borderColor="rgba(255,107,107,0.25)"
+              borderColor="rgba(255,107,107,0.20)"
               boxShadow="soft"
             >
-              <HStack justify="space-between" mb={3}>
-                <Heading size="sm">Forensic anomalies</Heading>
-                <Badge colorScheme="red" variant="subtle">
+              <HStack justify="space-between" mb={4}>
+                <HStack spacing={2}>
+                  <Icon as={FiAlertTriangle} color="red.400" boxSize={5} />
+                  <Heading size="sm">Forensic Anomalies</Heading>
+                </HStack>
+                <Badge colorScheme="red" variant="subtle" borderRadius="full" px={3} fontSize="xs">
                   {anomalies.length} detected
                 </Badge>
               </HStack>
-              <VStack align="stretch" spacing={2} maxH="320px" overflowY="auto">
+              <VStack align="stretch" spacing={3} maxH="360px" overflowY="auto">
                 {anomalies.map((a) => (
                   <Box
                     key={a.id}
-                    p={3}
-                    borderRadius="12px"
+                    p={4}
+                    borderRadius="16px"
                     bg={
                       a.severity === "critical"
-                        ? "rgba(255,107,107,0.12)"
+                        ? "rgba(255,107,107,0.08)"
                         : a.severity === "warning"
-                        ? "rgba(255,184,108,0.10)"
-                        : "whiteAlpha.100"
+                          ? "rgba(255,184,108,0.06)"
+                          : "whiteAlpha.50"
                     }
                     border="1px solid"
                     borderColor={
                       a.severity === "critical"
-                        ? "rgba(255,107,107,0.3)"
+                        ? "rgba(255,107,107,0.25)"
                         : a.severity === "warning"
-                        ? "rgba(255,184,108,0.25)"
-                        : "whiteAlpha.200"
+                          ? "rgba(255,184,108,0.20)"
+                          : "whiteAlpha.100"
                     }
+                    _hover={{
+                      borderColor:
+                        a.severity === "critical"
+                          ? "rgba(255,107,107,0.4)"
+                          : a.severity === "warning"
+                            ? "rgba(255,184,108,0.35)"
+                            : "whiteAlpha.200",
+                    }}
+                    transition="border-color 0.2s"
                   >
-                    <HStack justify="space-between" mb={1}>
+                    <HStack justify="space-between" mb={2}>
                       <Badge
                         colorScheme={
                           a.severity === "critical"
                             ? "red"
                             : a.severity === "warning"
-                            ? "orange"
-                            : "purple"
+                              ? "orange"
+                              : "purple"
                         }
                         variant="subtle"
                         fontSize="2xs"
+                        borderRadius="full"
+                        px={2}
                       >
                         {a.severity.toUpperCase()}
                       </Badge>
-                      <Badge colorScheme="purple" variant="outline" fontSize="2xs">
+                      <Badge
+                        colorScheme="purple"
+                        variant="outline"
+                        fontSize="2xs"
+                        borderRadius="full"
+                        px={2}
+                      >
                         {a.type.replace(/_/g, " ")}
                       </Badge>
                     </HStack>
-                    <Text fontSize="xs" color="whiteAlpha.800">
+                    <Text fontSize="xs" color="whiteAlpha.800" lineHeight="tall">
                       {a.description}
                     </Text>
                     {a.row_index !== null && (
-                      <Text fontSize="2xs" color="whiteAlpha.500" mt={1}>
+                      <Text fontSize="2xs" color="whiteAlpha.400" mt={2}>
                         Row {a.row_index}
                       </Text>
                     )}
@@ -1261,68 +1822,134 @@ export default function DocumentReviewPage() {
             </Box>
           )}
 
-          {/* Transaction Records from Backend */}
+          {/* â”€â”€ Normalized Transactions â”€â”€ */}
           {txRecords && txRecords.length > 0 && (
             <Box
-              p={5}
+              p={6}
               borderRadius="24px"
               bg="whiteAlpha.50"
               border="1px solid"
               borderColor="whiteAlpha.100"
               boxShadow="soft"
             >
-              <HStack justify="space-between" mb={3}>
-                <Heading size="sm">Normalized transactions</Heading>
+              <HStack justify="space-between" mb={4}>
                 <HStack spacing={2}>
-                  <Badge colorScheme="purple" variant="subtle">
+                  <Icon as={FiDatabase} color="blue.400" boxSize={5} />
+                  <Heading size="sm">Normalized Transactions</Heading>
+                </HStack>
+                <HStack spacing={2}>
+                  <Badge colorScheme="purple" variant="subtle" borderRadius="full" px={3} fontSize="xs">
                     {txRecords.length} rows
                   </Badge>
-                  <Badge colorScheme="red" variant="subtle">
-                    {txRecords.filter(t => t.is_anomaly).length} flagged
+                  <Badge colorScheme="red" variant="subtle" borderRadius="full" px={3} fontSize="xs">
+                    {txRecords.filter((t) => t.is_anomaly).length} flagged
                   </Badge>
                 </HStack>
               </HStack>
-              <Box maxH="300px" overflowY="auto">
+              <Box
+                maxH="340px"
+                overflowY="auto"
+                borderRadius="12px"
+                border="1px solid"
+                borderColor="whiteAlpha.100"
+              >
                 <Table size="sm">
                   <Thead>
                     <Tr>
-                      <Th color="whiteAlpha.600">#</Th>
-                      <Th color="whiteAlpha.600">Date</Th>
-                      <Th color="whiteAlpha.600">Description</Th>
-                      <Th color="whiteAlpha.600">Category</Th>
-                      <Th color="whiteAlpha.600" isNumeric>Amount</Th>
-                      <Th color="whiteAlpha.600" isNumeric>Balance</Th>
-                      <Th color="whiteAlpha.600">Flag</Th>
+                      <Th color="whiteAlpha.500" fontSize="2xs" bg="whiteAlpha.50" borderColor="whiteAlpha.100">
+                        #
+                      </Th>
+                      <Th color="whiteAlpha.500" fontSize="2xs" bg="whiteAlpha.50" borderColor="whiteAlpha.100">
+                        Date
+                      </Th>
+                      <Th color="whiteAlpha.500" fontSize="2xs" bg="whiteAlpha.50" borderColor="whiteAlpha.100">
+                        Description
+                      </Th>
+                      <Th color="whiteAlpha.500" fontSize="2xs" bg="whiteAlpha.50" borderColor="whiteAlpha.100">
+                        Category
+                      </Th>
+                      <Th
+                        color="whiteAlpha.500"
+                        fontSize="2xs"
+                        bg="whiteAlpha.50"
+                        isNumeric
+                        borderColor="whiteAlpha.100"
+                      >
+                        Amount
+                      </Th>
+                      <Th
+                        color="whiteAlpha.500"
+                        fontSize="2xs"
+                        bg="whiteAlpha.50"
+                        isNumeric
+                        borderColor="whiteAlpha.100"
+                      >
+                        Balance
+                      </Th>
+                      <Th color="whiteAlpha.500" fontSize="2xs" bg="whiteAlpha.50" borderColor="whiteAlpha.100">
+                        Flag
+                      </Th>
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {txRecords.slice(0, 100).map((tx) => (
+                    {txRecords.slice(0, 100).map((tx, idx) => (
                       <Tr
                         key={tx.id}
-                        bg={tx.is_anomaly ? "red.900" : undefined}
-                        _hover={{ bg: "whiteAlpha.100" }}
+                        bg={tx.is_anomaly ? "rgba(255,107,107,0.06)" : idx % 2 === 0 ? "transparent" : "whiteAlpha.25"}
+                        _hover={{ bg: tx.is_anomaly ? "rgba(255,107,107,0.12)" : "whiteAlpha.50" }}
+                        transition="background 0.15s"
                       >
-                        <Td fontSize="xs">{tx.row_index}</Td>
-                        <Td fontSize="xs">{tx.date ?? "-"}</Td>
-                        <Td fontSize="xs" maxW="180px" isTruncated>
+                        <Td fontSize="xs" color="whiteAlpha.500" borderColor="whiteAlpha.50">
+                          {tx.row_index}
+                        </Td>
+                        <Td fontSize="xs" borderColor="whiteAlpha.50">
+                          {tx.date ?? "-"}
+                        </Td>
+                        <Td fontSize="xs" maxW="180px" isTruncated borderColor="whiteAlpha.50">
                           {tx.merchant_normalized || tx.description || "-"}
                         </Td>
-                        <Td>
+                        <Td borderColor="whiteAlpha.50">
                           {tx.category && (
-                            <Badge colorScheme="purple" variant="subtle" fontSize="2xs">
+                            <Badge
+                              colorScheme="purple"
+                              variant="subtle"
+                              fontSize="2xs"
+                              borderRadius="full"
+                              px={2}
+                            >
                               {tx.category}
                             </Badge>
                           )}
                         </Td>
-                        <Td isNumeric fontSize="xs" color={tx.amount && tx.amount < 0 ? "orange.300" : "green.300"}>
-                          {tx.amount != null ? tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "-"}
+                        <Td
+                          isNumeric
+                          fontSize="xs"
+                          fontWeight="medium"
+                          color={tx.amount && tx.amount < 0 ? "orange.300" : "green.300"}
+                          borderColor="whiteAlpha.50"
+                        >
+                          {tx.amount != null
+                            ? tx.amount.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                              })
+                            : "-"}
                         </Td>
-                        <Td isNumeric fontSize="xs">
-                          {tx.balance_after != null ? tx.balance_after.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "-"}
+                        <Td isNumeric fontSize="xs" borderColor="whiteAlpha.50">
+                          {tx.balance_after != null
+                            ? tx.balance_after.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                              })
+                            : "-"}
                         </Td>
-                        <Td>
+                        <Td borderColor="whiteAlpha.50">
                           {tx.is_anomaly && (
-                            <Badge colorScheme="red" variant="subtle" fontSize="2xs">
+                            <Badge
+                              colorScheme="red"
+                              variant="subtle"
+                              fontSize="2xs"
+                              borderRadius="full"
+                              px={2}
+                            >
                               {tx.anomaly_tags ?? "FLAGGED"}
                             </Badge>
                           )}
@@ -1333,34 +1960,37 @@ export default function DocumentReviewPage() {
                 </Table>
               </Box>
               {txRecords.length > 100 && (
-                <Text fontSize="xs" color="whiteAlpha.500" mt={2}>
+                <Text fontSize="xs" color="whiteAlpha.400" mt={3} textAlign="center">
                   Showing first 100 of {txRecords.length} transactions.
                 </Text>
               )}
             </Box>
           )}
 
+          {/* â”€â”€ Knowledge Graph â”€â”€ */}
           <Box
-            p={5}
+            p={6}
             borderRadius="24px"
             bg="whiteAlpha.50"
             border="1px solid"
             borderColor="whiteAlpha.100"
             boxShadow="soft"
           >
-            <Heading size="sm" mb={1}>
-              Knowledge graph
-            </Heading>
-            <Text fontSize="xs" color="whiteAlpha.500" mb={3}>
-              Entities extracted from this document and how they relate. Hover a node for details.
+            <HStack spacing={2} mb={1}>
+              <Icon as={FiLayers} color="purple.400" boxSize={5} />
+              <Heading size="sm">Knowledge Graph</Heading>
+            </HStack>
+            <Text fontSize="xs" color="whiteAlpha.400" mb={4}>
+              Entities extracted from this document and how they relate. Hover a node
+              for details.
             </Text>
             {knowledge_graph && graphData.nodes.length > 0 ? (
               <>
                 <Box
                   ref={kgContainerRef}
-                  height="320px"
+                  height="340px"
                   overflow="hidden"
-                  borderRadius="12px"
+                  borderRadius="16px"
                   border="1px solid"
                   borderColor="whiteAlpha.100"
                   bg="#0A0A0F"
@@ -1369,7 +1999,7 @@ export default function DocumentReviewPage() {
                   <ForceGraph2D
                     graphData={graphData}
                     width={kgWidth}
-                    height={320}
+                    height={340}
                     nodeCanvasObject={paintNode}
                     nodePointerAreaPaint={(node, color, ctx) => {
                       const x = (node as { x?: number }).x ?? 0;
@@ -1382,29 +2012,47 @@ export default function DocumentReviewPage() {
                     linkColor={() => "rgba(255,255,255,0.15)"}
                     linkDirectionalArrowLength={4}
                     linkDirectionalArrowRelPos={1}
-                    linkLabel={(link) => (link as { label?: string }).label ?? ""}
+                    linkLabel={(link) =>
+                      (link as { label?: string }).label ?? ""
+                    }
                     backgroundColor="#0A0A0F"
                     cooldownTicks={60}
                     onEngineStop={() => {}}
                   />
                 </Box>
-                <HStack spacing={4} mt={2} flexWrap="wrap">
+                <HStack spacing={4} mt={3} flexWrap="wrap">
                   {Object.entries(NODE_COLORS)
-                    .filter(([type]) => graphData.nodes.some((n) => n.group === type))
+                    .filter(([type]) =>
+                      graphData.nodes.some((n) => n.group === type)
+                    )
                     .map(([type, color]) => (
-                    <HStack key={type} spacing={1}>
-                      <Box w="10px" h="10px" borderRadius="full" bg={color} />
-                      <Text fontSize="xs" color="whiteAlpha.600" textTransform="capitalize">
-                        {type === "account_holder" ? "Account Holder" : type}
-                      </Text>
-                    </HStack>
-                  ))}
+                      <HStack key={type} spacing={1.5}>
+                        <Box
+                          w="8px"
+                          h="8px"
+                          borderRadius="full"
+                          bg={color}
+                          boxShadow={`0 0 6px ${color}`}
+                        />
+                        <Text
+                          fontSize="2xs"
+                          color="whiteAlpha.500"
+                          textTransform="capitalize"
+                        >
+                          {type === "account_holder" ? "Account Holder" : type}
+                        </Text>
+                      </HStack>
+                    ))}
                 </HStack>
               </>
             ) : (
-              <Text fontSize="sm" color="whiteAlpha.600">
-                No knowledge graph data available yet. Upload a document to see entity relationships.
-              </Text>
+              <VStack py={8} spacing={3}>
+                <Icon as={FiLayers} boxSize={8} color="whiteAlpha.200" />
+                <Text fontSize="sm" color="whiteAlpha.500" textAlign="center">
+                  No knowledge graph data available yet. Upload a document to see
+                  entity relationships.
+                </Text>
+              </VStack>
             )}
           </Box>
         </VStack>
@@ -1412,4 +2060,3 @@ export default function DocumentReviewPage() {
     </VStack>
   );
 }
-

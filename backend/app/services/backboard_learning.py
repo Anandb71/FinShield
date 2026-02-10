@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Minimum gap between identical learning-sync events (avoids flooding)
 # ---------------------------------------------------------------------------
 _LEARNING_COOLDOWN = timedelta(hours=1)
-_MIN_CLUSTER_SIZE = 3  # minimum corrections on a field before we teach Backboard
+_MIN_CLUSTER_SIZE = 1  # learn from every correction immediately
 
 
 class BackboardLearningEnhancer:

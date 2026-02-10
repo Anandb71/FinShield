@@ -121,6 +121,7 @@ def run_validations(
         if opening is not None and closing is not None and transactions:
             tx_total = 0.0
             last_date = None
+            date_sequence_violations = 0
             for tx in transactions:
                 amount = _safe_number(tx.get("amount"))
                 if amount is not None:
@@ -132,13 +133,18 @@ def run_validations(
                 tx_date_raw.append(str(tx.get("date") or ""))
                 tx_descriptions.append(str(tx.get("description") or ""))
                 if last_date and tx_date and tx_date < last_date:
-                    warnings.append({
-                        "field": "transactions",
-                        "message": "Transaction dates are not in sequence.",
-                        "severity": "info",
-                    })
+                    date_sequence_violations += 1
                 if tx_date:
                     last_date = tx_date
+            # Emit date-sequence warning (once, with count)
+            if date_sequence_violations > 0:
+                sev = "critical" if date_sequence_violations >= 5 else "warning"
+                warnings.append({
+                    "field": "date_sequence",
+                    "message": f"Transaction dates are not in chronological order ({date_sequence_violations} violations).",
+                    "severity": sev,
+                    "count": date_sequence_violations,
+                })
             if not _compare_close(opening + tx_total, closing, tolerance=0.05):
                 issue = {
                     "field": "closing_balance",

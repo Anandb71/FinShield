@@ -407,7 +407,25 @@ async def ingest_documents(
             for entity in entities
         ]
         graph = build_graph_from_document(doc.id, doc.doc_type, extracted_fields, entity_nodes)
-        get_knowledge_store().upsert_document_graph(graph)
+        kg_store = get_knowledge_store()
+        kg_store.upsert_document_graph(graph)
+
+        # Cross-document linking in knowledge graph
+        acct = extracted_fields.get("account_number")
+        if acct and doc.doc_type == "bank_statement":
+            prev_docs = session.exec(
+                select(Document).where(
+                    Document.id != doc.id,
+                    Document.doc_type == "bank_statement",
+                )
+            ).all()
+            for prev in prev_docs:
+                pf = prev.extracted_fields or {}
+                if pf.get("account_number") == acct:
+                    kg_store.link_documents(
+                        prev.id, doc.id, "CROSS_CHECKED_WITH",
+                        {"account_number": acct},
+                    )
 
         results.append(
             {

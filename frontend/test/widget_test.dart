@@ -1,4 +1,4 @@
-// Basic smoke test for FinShield app
+// Basic smoke test for Aegis app
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

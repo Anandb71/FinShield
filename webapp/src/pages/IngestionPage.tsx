@@ -131,7 +131,7 @@ export default function IngestionPage() {
         </Text>
         <Heading size="lg">Drag. Drop. Diagnose.</Heading>
         <Text fontSize="sm" color="whiteAlpha.700" maxW="640px">
-          Upload bank statements, invoices, payslips, and contracts. Finsight
+          Upload bank statements, invoices, payslips, and contracts. Aegis
           classifies, extracts, and validates everything against your financial memory.
         </Text>
         <HStack spacing={4} mt={4} flexWrap="wrap">

@@ -1,5 +1,5 @@
 """
-FinShield - Excel Normalization Worker (The "Repair Shop")
+Aegis - Excel Normalization Worker (The "Repair Shop")
 
 Handles broken Excel inputs before extraction:
 - Detects "Unnamed" columns

@@ -1,5 +1,5 @@
 """
-FinShield - Batch Re-analysis API
+Aegis - Batch Re-analysis API
 
 Re-runs validation and anomaly detection on stored documents when
 forensic rules are updated. Does NOT require re-uploading or re-extracting;

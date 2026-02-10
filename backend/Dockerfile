@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# FinShield API - Production Dockerfile
+# Aegis API - Production Dockerfile
 # Multi-stage build for optimized image size
 
 # Stage 1: Build
@@ -27,17 +27,17 @@ FROM python:3.11-slim as runtime
 WORKDIR /app
 
 # Create non-root user
-RUN useradd --create-home --shell /bin/bash finshield
+RUN useradd --create-home --shell /bin/bash aegis
 
 # Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application
-COPY --chown=finshield:finshield app/ app/
+COPY --chown=aegis:aegis app/ app/
 
 # Switch to non-root user
-USER finshield
+USER aegis
 
 # Expose port
 EXPOSE 8000

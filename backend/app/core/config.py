@@ -1,5 +1,5 @@
 """
-FinShield / Finsight - Core Configuration
+Aegis - Core Configuration
 
 Environment-driven settings for the new build.
 """
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     """Application settings with environment variable support."""
 
     # API Configuration
-    app_name: str = "Finsight API"
+    app_name: str = "Aegis API"
     app_version: str = "1.0.0"
     debug: bool = True
 
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     backboard_retry_max_delay_seconds: float = 12.0
 
     # Storage
-    database_url: str = f"sqlite:///{BASE_DIR / 'finsight.db'}"
+    database_url: str = f"sqlite:///{BASE_DIR / 'aegis.db'}"
 
     # Review thresholds
     review_confidence_threshold: float = 0.8

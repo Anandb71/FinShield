@@ -107,7 +107,7 @@ export default function App() {
             </Box>
             <Box>
               <Text fontSize="lg" fontWeight="bold">
-                Finsight
+                Aegis
               </Text>
               <Text fontSize="xs" color="whiteAlpha.700">
                 Autonomous Financial Immunosystem

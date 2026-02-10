@@ -1,6 +1,6 @@
 {
-    "name": "finshield_app",
-    "short_name": "finshield_app",
+    "name": "aegis_app",
+    "short_name": "aegis_app",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

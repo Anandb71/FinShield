@@ -1,7 +1,7 @@
 [project]
-name = "finshield-api"
+name = "aegis-api"
 version = "0.1.0"
-description = "FinShield - The Financial Flight Recorder API"
+description = "Aegis - The Financial Flight Recorder API"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}

@@ -1,4 +1,4 @@
-"""Finsight - Learning Loop API."""
+"""Aegis - Learning Loop API."""
 
 from fastapi import APIRouter, Depends
 from sqlmodel import Session

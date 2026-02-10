@@ -1,4 +1,4 @@
-"""Finsight - Dashboard API."""
+"""Aegis - Dashboard API."""
 
 from datetime import datetime, timedelta, timezone
 import math

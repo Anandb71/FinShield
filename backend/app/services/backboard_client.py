@@ -57,14 +57,14 @@ class BackboardClient:
         response.raise_for_status()
         assistants = response.json()
         for assistant in assistants:
-            if assistant.get("name") == "Finsight Auditor":
+            if assistant.get("name") == "Aegis Auditor":
                 self._assistant_id = assistant.get("assistant_id") or assistant.get("id")
                 return self._assistant_id
 
         payload = {
-            "name": "Finsight Auditor",
+            "name": "Aegis Auditor",
             "system_prompt": (
-                "You are Finsight, an expert AI financial auditor. "
+                "You are Aegis, an expert AI financial auditor. "
                 "Analyze financial documents, extract structured data, and detect anomalies."
             ),
             "llm_provider": self.llm_provider,
@@ -133,7 +133,7 @@ class BackboardClient:
             )
 
         return (
-            "You are Finsight, an expert financial document underwriter.\n"
+            "You are Aegis, an expert financial document underwriter.\n"
             f"{learning_section}"
             "Analyze the attached document and return ONLY a single JSON object "
             "with this EXACT structure (no extra keys, no comments, no markdown):\n"

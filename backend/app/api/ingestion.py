@@ -22,6 +22,14 @@ from app.services.knowledge_graph import build_graph_from_document, get_knowledg
 
 router = APIRouter(prefix="/ingestion")
 
+# ── Confidence-adjustment constants ──────────────────────────────────
+CONFIDENCE_FRAUD_CAP = 0.12          # max confidence when metadata fraud detected
+CONFIDENCE_ERROR_PENALTY = 0.15      # per validation error
+CONFIDENCE_CRITICAL_WARN_PENALTY = 0.10  # per critical warning
+CONFIDENCE_NORMAL_WARN_PENALTY = 0.03    # per normal warning
+CONFIDENCE_INFO_PENALTY = 0.01       # per info warning
+CONFIDENCE_FLOOR = 0.10              # absolute minimum confidence
+
 
 def _persist_transactions(session: Session, doc_id: str, transactions: List[Dict[str, Any]]) -> List[Transaction]:
     """Save extracted transactions to the database."""
@@ -127,6 +135,10 @@ async def ingest_documents(
     results: List[Dict[str, Any]] = []
     batch_id = str(uuid4())
 
+    # Ensure learned correction patterns are loaded into prompt cache
+    from app.services.backboard_learning import get_learning_enhancer
+    get_learning_enhancer()._ensure_patterns_loaded(session)
+
     for upload in files:
         t0 = time.monotonic()
         content = await upload.read()
@@ -231,6 +243,10 @@ async def ingest_documents(
             if excel_result.metadata_discrepancy:
                 extracted_fields["metadata_discrepancy"] = excel_result.metadata_discrepancy
 
+            # Pass detected currency for multi-currency support
+            if excel_result.currency:
+                extracted_fields["currency"] = excel_result.currency
+
         if classification.get("type") == "bank_statement":
             opening_balance = extracted_fields.get("opening_balance")
             closing_balance = extracted_fields.get("closing_balance")
@@ -281,7 +297,7 @@ async def ingest_documents(
                 f"discrepancy={disc['discrepancy']:,.2f}, ratio={disc['ratio']:.1f}x"
             )
             # This is a fraud signal — slam confidence to near zero
-            confidence = min(confidence, 0.12)
+            confidence = min(confidence, CONFIDENCE_FRAUD_CAP)
             debug_log.append(f"confidence_slammed_to: {confidence} (metadata fraud)")
             # Also inject as a validation error so it shows in the UI
             errors.append({
@@ -297,18 +313,18 @@ async def ingest_documents(
         # ── FIX #9: Penalize confidence based on validation issues ──
         confidence_penalty = 0.0
         for e in errors:
-            confidence_penalty += 0.15  # Each error = -15%
+            confidence_penalty += CONFIDENCE_ERROR_PENALTY
         for w in warnings:
             sev = w.get("severity", "warning") if isinstance(w, dict) else "warning"
             if sev == "critical":
-                confidence_penalty += 0.10  # Critical warning = -10%
+                confidence_penalty += CONFIDENCE_CRITICAL_WARN_PENALTY
             elif sev == "warning":
-                confidence_penalty += 0.03  # Normal warning = -3%
+                confidence_penalty += CONFIDENCE_NORMAL_WARN_PENALTY
             else:
-                confidence_penalty += 0.01  # Info = -1%
+                confidence_penalty += CONFIDENCE_INFO_PENALTY
         if confidence_penalty > 0:
             original_confidence = confidence
-            confidence = max(0.10, confidence - confidence_penalty)
+            confidence = max(CONFIDENCE_FLOOR, confidence - confidence_penalty)
             debug_log.append(
                 f"confidence_adjusted: {original_confidence:.2f} -> {confidence:.2f} "
                 f"(penalty={confidence_penalty:.2f} from {len(errors)} errors, {len(warnings)} warnings)"
@@ -391,7 +407,25 @@ async def ingest_documents(
             for entity in entities
         ]
         graph = build_graph_from_document(doc.id, doc.doc_type, extracted_fields, entity_nodes)
-        get_knowledge_store().upsert_document_graph(graph)
+        kg_store = get_knowledge_store()
+        kg_store.upsert_document_graph(graph)
+
+        # Cross-document linking in knowledge graph
+        acct = extracted_fields.get("account_number")
+        if acct and doc.doc_type == "bank_statement":
+            prev_docs = session.exec(
+                select(Document).where(
+                    Document.id != doc.id,
+                    Document.doc_type == "bank_statement",
+                )
+            ).all()
+            for prev in prev_docs:
+                pf = prev.extracted_fields or {}
+                if pf.get("account_number") == acct:
+                    kg_store.link_documents(
+                        prev.id, doc.id, "CROSS_CHECKED_WITH",
+                        {"account_number": acct},
+                    )
 
         results.append(
             {

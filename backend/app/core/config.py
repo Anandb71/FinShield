@@ -70,10 +70,11 @@ class Settings(BaseSettings):
     ocr_preserve_interword_spaces: int = 1
     ocr_char_whitelist: str = ""
 
-    class Config:
-        env_file = (str(ROOT_ENV), str(BACKEND_ENV))
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = {
+        "env_file": (str(ROOT_ENV), str(BACKEND_ENV)),
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
 @lru_cache()

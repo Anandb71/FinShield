@@ -1,6 +1,7 @@
 import {
   Box,
   Badge,
+  Button,
   Heading,
   HStack,
   Icon,
@@ -19,9 +20,10 @@ import {
   Thead,
   Tr,
   VStack,
-  Progress
+  Progress,
+  useToast
 } from "@chakra-ui/react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
@@ -35,7 +37,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { FiActivity, FiAlertTriangle, FiClock, FiShield, FiTrendingUp, FiZap } from "react-icons/fi";
+import { FiActivity, FiAlertTriangle, FiBookOpen, FiClock, FiRefreshCw, FiShield, FiTrash2, FiTrendingUp, FiZap } from "react-icons/fi";
 
 import { api } from "../api/client";
 import type { DashboardMetrics } from "../api/types";
@@ -61,6 +63,90 @@ export default function DashboardPage() {
       const { data } = await api.get<DashboardMetrics>("/dashboard/metrics");
       return data;
     }
+  });
+
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const batchReanalyzeMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post("/batch/reanalyze");
+      return data;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["dashboardMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["reviewQueue"] });
+      const changed = result?.summary?.status_changed ?? 0;
+      toast({
+        title: "Batch Re-analysis Complete",
+        description: `${result?.total_documents ?? 0} documents re-analyzed. ${changed} status changes.`,
+        status: "success",
+        duration: 4000,
+        isClosable: true
+      });
+    },
+    onError: () => {
+      toast({ title: "Re-analysis failed", status: "error", duration: 3000, isClosable: true });
+    }
+  });
+
+  // ── Learning System ──────────────────────────────────────────
+  const { data: learningStatus } = useQuery({
+    queryKey: ["learningStatus"],
+    queryFn: async () => {
+      const { data } = await api.get("/admin/learning/status");
+      return data as {
+        total_documents: number;
+        total_corrections: number;
+        error_rate: number;
+        ready_to_sync: boolean;
+        clusters: Record<string, { count: number; examples: { original: string; corrected: string; document_id: string }[] }>;
+        recent_events: { event_type: string; payload: Record<string, unknown>; created_at: string }[];
+      };
+    },
+    refetchInterval: 30_000,
+  });
+
+  const learningSyncMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post("/admin/learning/sync");
+      return data as { status: string; synced: number; total_corrections: number };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["learningStatus"] });
+      toast({
+        title: "Learning Sync Complete",
+        description: `${result?.synced ?? 0} patterns pushed to Backboard.`,
+        status: "success",
+        duration: 4000,
+        isClosable: true,
+      });
+    },
+    onError: () => {
+      toast({ title: "Learning sync failed", status: "error", duration: 3000, isClosable: true });
+    },
+  });
+
+  // ── Clear History ────────────────────────────────────────────
+  const clearHistoryMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.delete("/admin/history");
+      return data as { status: string; deleted: Record<string, number>; files_removed: number };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries();
+      const total = Object.values(result?.deleted ?? {}).reduce((a, b) => a + b, 0);
+      toast({
+        title: "History Cleared",
+        description: `${total} records and ${result?.files_removed ?? 0} file folders removed.`,
+        status: "info",
+        duration: 5000,
+        isClosable: true,
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to clear history", status: "error", duration: 3000, isClosable: true });
+    },
   });
 
   if (isLoading || !data) {
@@ -519,6 +605,205 @@ export default function DashboardPage() {
               </Sankey>
             </ResponsiveContainer>
           </Box>
+        </Box>
+      </SimpleGrid>
+
+      {/* ── Batch Controls ────────────────────────────────────────── */}
+      <SimpleGrid columns={[1, null, 3]} spacing={6} mt={6}>
+        <Box
+          borderRadius="24px"
+          bg="whiteAlpha.50"
+          border="1px solid"
+          borderColor="whiteAlpha.100"
+          p={5}
+          boxShadow="soft"
+        >
+          <HStack mb={3}>
+            <Icon as={FiRefreshCw} color="aurora.violet" />
+            <Heading size="sm">Batch Re-analysis</Heading>
+          </HStack>
+          <Text fontSize="xs" color="whiteAlpha.600" mb={4}>
+            Re-run forensic validation on all documents using the latest rules.
+            Useful after updating detection thresholds or adding new anomaly patterns.
+          </Text>
+          <Button
+            size="sm"
+            colorScheme="purple"
+            leftIcon={<FiRefreshCw />}
+            onClick={() => batchReanalyzeMutation.mutate()}
+            isLoading={batchReanalyzeMutation.isPending}
+            loadingText="Re-analyzing..."
+          >
+            Re-analyze All Documents
+          </Button>
+          {batchReanalyzeMutation.data && (
+            <Box mt={3} p={3} bg="whiteAlpha.50" borderRadius="12px" fontSize="xs">
+              <Text color="aurora.mint" fontWeight="bold">Last run results:</Text>
+              <VStack align="start" spacing={1} mt={1}>
+                <Text>Documents: {batchReanalyzeMutation.data.total_documents}</Text>
+                <Text>Time: {batchReanalyzeMutation.data.total_time_ms}ms</Text>
+                <Text>Errors found: {batchReanalyzeMutation.data.summary?.errors_found ?? 0}</Text>
+                <Text>Warnings: {batchReanalyzeMutation.data.summary?.warnings_found ?? 0}</Text>
+                <Text color={batchReanalyzeMutation.data.summary?.status_changed > 0 ? "aurora.coral" : "aurora.mint"}>
+                  Status changes: {batchReanalyzeMutation.data.summary?.status_changed ?? 0}
+                </Text>
+              </VStack>
+            </Box>
+          )}
+
+          <Box mt={4} pt={4} borderTop="1px solid" borderColor="whiteAlpha.100">
+            <Text fontSize="xs" color="whiteAlpha.500" mb={3}>
+              Remove all documents, corrections, anomalies, and uploaded files.
+              This action cannot be undone.
+            </Text>
+            <Button
+              size="sm"
+              colorScheme="red"
+              variant="outline"
+              leftIcon={<FiTrash2 />}
+              onClick={() => {
+                if (window.confirm("Are you sure? This will permanently delete ALL documents, corrections, anomalies, and uploaded files.")) {
+                  clearHistoryMutation.mutate();
+                }
+              }}
+              isLoading={clearHistoryMutation.isPending}
+              loadingText="Clearing..."
+            >
+              Clear All History
+            </Button>
+          </Box>
+        </Box>
+
+        <Box
+          borderRadius="24px"
+          bg="whiteAlpha.50"
+          border="1px solid"
+          borderColor="whiteAlpha.100"
+          p={5}
+          boxShadow="soft"
+        >
+          <HStack mb={3}>
+            <Icon as={FiShield} color="aurora.coral" />
+            <Heading size="sm">Forensic Rules</Heading>
+          </HStack>
+          <Text fontSize="xs" color="whiteAlpha.600" mb={3}>
+            Current confidence penalty configuration. Update via the API
+            endpoint <Tag size="sm" colorScheme="purple">PUT /api/batch/rules</Tag> to
+            adjust thresholds and auto-trigger batch re-analysis.
+          </Text>
+          <Table size="sm">
+            <Thead>
+              <Tr>
+                <Th color="whiteAlpha.600">Rule</Th>
+                <Th color="whiteAlpha.600" isNumeric>Value</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              <Tr><Td fontSize="xs">Error penalty</Td><Td isNumeric fontSize="xs">−15%</Td></Tr>
+              <Tr><Td fontSize="xs">Critical warning</Td><Td isNumeric fontSize="xs">−10%</Td></Tr>
+              <Tr><Td fontSize="xs">Normal warning</Td><Td isNumeric fontSize="xs">−3%</Td></Tr>
+              <Tr><Td fontSize="xs">Info warning</Td><Td isNumeric fontSize="xs">−1%</Td></Tr>
+              <Tr><Td fontSize="xs">Confidence floor</Td><Td isNumeric fontSize="xs">10%</Td></Tr>
+              <Tr><Td fontSize="xs">Fraud cap</Td><Td isNumeric fontSize="xs">12%</Td></Tr>
+            </Tbody>
+          </Table>
+        </Box>
+
+        {/* ── Learning System ──────────────────────────────────────── */}
+        <Box
+          borderRadius="24px"
+          bg="whiteAlpha.50"
+          border="1px solid"
+          borderColor="whiteAlpha.100"
+          p={5}
+          boxShadow="soft"
+        >
+          <HStack mb={3}>
+            <Icon as={FiBookOpen} color="aurora.mint" />
+            <Heading size="sm">Self-Learning Status</Heading>
+          </HStack>
+          <Text fontSize="xs" color="whiteAlpha.600" mb={4}>
+            Tracks human corrections, clusters error patterns, and pushes learning
+            messages to the AI so it avoids repeating the same mistakes.
+          </Text>
+
+          {learningStatus ? (
+            <VStack align="stretch" spacing={3}>
+              <SimpleGrid columns={2} spacing={3}>
+                <Box p={2} bg="whiteAlpha.50" borderRadius="12px" textAlign="center">
+                  <Text fontSize="2xl" fontWeight="bold" color="aurora.mint">
+                    {learningStatus.total_corrections}
+                  </Text>
+                  <Text fontSize="xs" color="whiteAlpha.600">corrections</Text>
+                </Box>
+                <Box p={2} bg="whiteAlpha.50" borderRadius="12px" textAlign="center">
+                  <Text
+                    fontSize="2xl"
+                    fontWeight="bold"
+                    color={learningStatus.error_rate > 0.1 ? "red.300" : "aurora.mint"}
+                  >
+                    {(learningStatus.error_rate * 100).toFixed(1)}%
+                  </Text>
+                  <Text fontSize="xs" color="whiteAlpha.600">error rate</Text>
+                </Box>
+              </SimpleGrid>
+
+              {Object.keys(learningStatus.clusters).length > 0 && (
+                <Box>
+                  <Text fontSize="xs" fontWeight="bold" color="whiteAlpha.700" mb={1}>
+                    Error Clusters
+                  </Text>
+                  {Object.entries(learningStatus.clusters)
+                    .sort(([, a], [, b]) => b.count - a.count)
+                    .slice(0, 5)
+                    .map(([field, info]) => (
+                      <HStack key={field} justify="space-between" fontSize="xs" py={0.5}>
+                        <Text color="whiteAlpha.800">{field}</Text>
+                        <Badge colorScheme={info.count >= 3 ? "red" : "gray"} variant="subtle">
+                          {info.count}x
+                        </Badge>
+                      </HStack>
+                    ))}
+                </Box>
+              )}
+
+              {learningStatus.recent_events.length > 0 && (
+                <Box>
+                  <Text fontSize="xs" fontWeight="bold" color="whiteAlpha.700" mb={1}>
+                    Recent Events
+                  </Text>
+                  {learningStatus.recent_events.slice(0, 3).map((ev, i) => (
+                    <HStack key={i} fontSize="xs" py={0.5}>
+                      <Badge
+                        colorScheme={ev.event_type === "learning_sync" ? "green" : "orange"}
+                        variant="subtle"
+                        fontSize="2xs"
+                      >
+                        {ev.event_type.replace(/_/g, " ")}
+                      </Badge>
+                      <Text color="whiteAlpha.500">
+                        {new Date(ev.created_at).toLocaleString()}
+                      </Text>
+                    </HStack>
+                  ))}
+                </Box>
+              )}
+
+              <Button
+                size="sm"
+                colorScheme="teal"
+                leftIcon={<FiBookOpen />}
+                onClick={() => learningSyncMutation.mutate()}
+                isLoading={learningSyncMutation.isPending}
+                loadingText="Syncing..."
+                isDisabled={!learningStatus.ready_to_sync}
+              >
+                {learningStatus.ready_to_sync ? "Sync Learning to AI" : "Cooldown active"}
+              </Button>
+            </VStack>
+          ) : (
+            <Text fontSize="xs" color="whiteAlpha.500">Loading learning status...</Text>
+          )}
         </Box>
       </SimpleGrid>
     </Box>

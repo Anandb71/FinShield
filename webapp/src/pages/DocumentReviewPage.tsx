@@ -34,8 +34,8 @@ import {
 import { FiAlertTriangle, FiCheckCircle, FiChevronLeft, FiChevronRight, FiDatabase, FiDownload, FiFileText } from "react-icons/fi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
-import ForceGraph3D from "react-force-graph-3d";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ForceGraph2D from "react-force-graph-2d";
 import confetti from "canvas-confetti";
 import { Document, Page, pdfjs } from "react-pdf";
 import {
@@ -201,9 +201,13 @@ export default function DocumentReviewPage() {
       .map((txn) => Math.abs(txn.amount ?? 0))
       .filter((value) => Number.isFinite(value) && value > 0)
       .sort((a, b) => a - b);
-    if (values.length < 8) return 10000;
+    if (values.length < 8) {
+      // Not enough data — use median × 10 as a sensible dynamic fallback
+      const median = values.length > 0 ? values[Math.floor(values.length / 2)] : 0;
+      return median > 0 ? median * 10 : values[values.length - 1] ?? 1000;
+    }
     const idx = Math.floor(values.length * 0.9);
-    return values[Math.min(idx, values.length - 1)] || 10000;
+    return values[Math.min(idx, values.length - 1)] || 1000;
   }, [transactions]);
 
   const filteredTransactions = useMemo(() => {
@@ -316,10 +320,64 @@ export default function DocumentReviewPage() {
   const graphData = useMemo(() => {
     if (!knowledge_graph) return { nodes: [], links: [] };
     return {
-      nodes: knowledge_graph.nodes.map((n) => ({ id: n.id, group: n.type, label: n.type })),
-      links: knowledge_graph.edges.map((e) => ({ source: e.source_id, target: e.target_id, label: e.type }))
+      nodes: knowledge_graph.nodes.map((n) => {
+        const props = n.properties ?? {};
+        const name =
+          (props.canonical_value as string) ??
+          (props.doc_type ? `${props.doc_type}` : null) ??
+          n.type;
+        return { id: n.id, group: n.type, name };
+      }),
+      links: knowledge_graph.edges.map((e) => ({
+        source: e.source_id,
+        target: e.target_id,
+        label: e.type,
+      })),
     };
   }, [knowledge_graph]);
+
+  const NODE_COLORS: Record<string, string> = {
+    Document: "#9F7AEA",   // purple
+    vendor: "#48BB78",     // green
+    bank: "#4299E1",       // blue
+    employer: "#ED8936",   // orange
+  };
+
+  const kgContainerRef = useRef<HTMLDivElement | null>(null);
+  const [kgWidth, setKgWidth] = useState(600);
+  useEffect(() => {
+    const el = kgContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setKgWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [knowledge_graph]);
+
+  const paintNode = useCallback(
+    (node: { id?: string; group?: string; name?: string; x?: number; y?: number }, ctx: CanvasRenderingContext2D) => {
+      const x = node.x ?? 0;
+      const y = node.y ?? 0;
+      const r = node.group === "Document" ? 8 : 6;
+      const color = NODE_COLORS[node.group ?? ""] ?? "#A0AEC0";
+
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Label
+      const label = node.name ?? node.group ?? "";
+      ctx.font = "4px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillText(label.length > 24 ? label.slice(0, 22) + "…" : label, x, y + r + 2);
+    },
+    [],
+  );
 
   const selectedTransaction = useMemo(() => {
     if (selectedTxnIndex === null) return null;
@@ -342,6 +400,13 @@ export default function DocumentReviewPage() {
     if (evidenceAnchor.amount && evidenceAnchor.amount !== "-") return evidenceAnchor.amount;
     return evidenceAnchor.description || "";
   }, [evidenceAnchor]);
+
+  // Auto-select first transaction so Recon tab has data immediately
+  useEffect(() => {
+    if (selectedTxnIndex === null && transactions.length > 0) {
+      setSelectedTxnIndex(transactions[0].index);
+    }
+  }, [transactions, selectedTxnIndex]);
 
   useEffect(() => {
     if (!isPdf || !highlightText) return;
@@ -791,6 +856,18 @@ export default function DocumentReviewPage() {
               isLoading={reanalyzeMutation.isPending}
             >
               Re-run AI analysis
+            </Button>
+            <Button
+              mt={2}
+              size="xs"
+              variant="outline"
+              colorScheme="cyan"
+              leftIcon={<FiDownload />}
+              onClick={() => {
+                window.open(`/api/reports/${docId}/html`, "_blank");
+              }}
+            >
+              Download Report
             </Button>
           </Box>
 
@@ -1262,22 +1339,60 @@ export default function DocumentReviewPage() {
             borderColor="whiteAlpha.100"
             boxShadow="soft"
           >
-            <Heading size="sm" mb={3}>
+            <Heading size="sm" mb={1}>
               Knowledge graph
             </Heading>
-            {knowledge_graph ? (
-              <Box height="320px">
-                <ForceGraph3D
-                  graphData={graphData}
-                  nodeLabel={(node) => `${node.group}: ${node.id}`}
-                  linkLabel={(link) => link.label}
-                  nodeAutoColorBy="group"
-                  backgroundColor="#0A0A0F"
-                />
-              </Box>
+            <Text fontSize="xs" color="whiteAlpha.500" mb={3}>
+              Entities extracted from this document and how they relate. Hover a node for details.
+            </Text>
+            {knowledge_graph && graphData.nodes.length > 0 ? (
+              <>
+                <Box
+                  ref={kgContainerRef}
+                  height="320px"
+                  overflow="hidden"
+                  borderRadius="12px"
+                  border="1px solid"
+                  borderColor="whiteAlpha.100"
+                  bg="#0A0A0F"
+                  position="relative"
+                >
+                  <ForceGraph2D
+                    graphData={graphData}
+                    width={kgWidth}
+                    height={320}
+                    nodeCanvasObject={paintNode}
+                    nodePointerAreaPaint={(node, color, ctx) => {
+                      const x = (node as { x?: number }).x ?? 0;
+                      const y = (node as { y?: number }).y ?? 0;
+                      ctx.beginPath();
+                      ctx.arc(x, y, 8, 0, 2 * Math.PI);
+                      ctx.fillStyle = color;
+                      ctx.fill();
+                    }}
+                    linkColor={() => "rgba(255,255,255,0.15)"}
+                    linkDirectionalArrowLength={4}
+                    linkDirectionalArrowRelPos={1}
+                    linkLabel={(link) => (link as { label?: string }).label ?? ""}
+                    backgroundColor="#0A0A0F"
+                    cooldownTicks={60}
+                    onEngineStop={() => {}}
+                  />
+                </Box>
+                <HStack spacing={4} mt={2} flexWrap="wrap">
+                  {Object.entries(NODE_COLORS).map(([type, color]) => (
+                    <HStack key={type} spacing={1}>
+                      <Box w="10px" h="10px" borderRadius="full" bg={color} />
+                      <Text fontSize="xs" color="whiteAlpha.600" textTransform="capitalize">
+                        {type}
+                      </Text>
+                    </HStack>
+                  ))}
+                </HStack>
+              </>
             ) : (
               <Text fontSize="sm" color="whiteAlpha.600">
-                No knowledge graph data available yet.
+                No knowledge graph data available yet. Upload a document to see entity relationships.
               </Text>
             )}
           </Box>

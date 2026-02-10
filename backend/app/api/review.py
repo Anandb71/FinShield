@@ -9,6 +9,7 @@ from sqlmodel import Session, select, delete
 from app.db.models import Correction, Document
 from app.db.session import get_session
 from app.services.backboard_client import BackboardClient
+from app.services.backboard_learning import get_learning_enhancer
 from app.services.file_preprocess import normalize_input
 from app.services.layout import detect_layout_flags
 from app.services.quality import score_image_quality
@@ -194,6 +195,18 @@ async def submit_correction(
             await client.submit_correction(doc.backboard_thread_id, summary)
         except Exception as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    # Push all corrections for this document as a learning batch
+    all_corrections = session.exec(
+        select(Correction).where(Correction.document_id == doc.id)
+    ).all()
+    enhancer = get_learning_enhancer()
+    try:
+        await enhancer.push_document_corrections(doc, list(all_corrections))
+    except Exception as exc:
+        # Non-fatal — log and continue
+        import logging
+        logging.getLogger(__name__).warning("Learning push failed: %s", exc)
 
     learning = check_learning_triggers(session)
 

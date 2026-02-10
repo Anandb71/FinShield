@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+import math
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Optional
 import re
 
@@ -8,6 +9,85 @@ from dateutil import parser
 from sqlmodel import Session, select
 
 from app.db.models import Document
+
+
+# ── Multi-currency configuration ──────────────────────────────────────
+# Round-number thresholds and magnitude checks vary by currency.
+# Each currency defines:
+#   round_unit  – the base "round" denomination (e.g. 100 INR, 100 USD, 1000 JPY)
+#   min_round   – minimum absolute value to be considered a "round" number
+#   outlier_factor – multiplier on median balance to flag closing-balance outliers
+CURRENCY_PROFILES: Dict[str, Dict[str, float]] = {
+    "INR": {"round_unit": 100, "min_round": 100, "outlier_factor": 50},
+    "USD": {"round_unit": 100, "min_round": 50, "outlier_factor": 50},
+    "EUR": {"round_unit": 100, "min_round": 50, "outlier_factor": 50},
+    "GBP": {"round_unit": 100, "min_round": 50, "outlier_factor": 50},
+    "JPY": {"round_unit": 1000, "min_round": 1000, "outlier_factor": 100},
+    "AED": {"round_unit": 100, "min_round": 50, "outlier_factor": 50},
+    "SGD": {"round_unit": 100, "min_round": 50, "outlier_factor": 50},
+    "AUD": {"round_unit": 100, "min_round": 50, "outlier_factor": 50},
+    "CAD": {"round_unit": 100, "min_round": 50, "outlier_factor": 50},
+    "CNY": {"round_unit": 100, "min_round": 100, "outlier_factor": 50},
+}
+DEFAULT_PROFILE = {"round_unit": 100, "min_round": 100, "outlier_factor": 50}
+
+
+def _detect_currency(extracted: Dict[str, Any]) -> str:
+    """Detect currency from extracted fields, transaction descriptions, or symbols."""
+    # 1. Explicit currency field
+    explicit = extracted.get("currency") or extracted.get("Currency")
+    if explicit and str(explicit).upper().strip() in CURRENCY_PROFILES:
+        return str(explicit).upper().strip()
+
+    # 2. Scan descriptions for currency symbols / codes
+    symbol_map = {
+        "₹": "INR", "Rs": "INR", "INR": "INR",
+        "$": "USD", "USD": "USD",
+        "€": "EUR", "EUR": "EUR",
+        "£": "GBP", "GBP": "GBP",
+        "¥": "JPY", "JPY": "JPY",
+        "AED": "AED", "SGD": "SGD",
+        "A$": "AUD", "AUD": "AUD",
+        "C$": "CAD", "CAD": "CAD",
+        "CN¥": "CNY", "CNY": "CNY",
+    }
+    transactions = extracted.get("transactions") or []
+    votes: Dict[str, int] = {}
+    for tx in transactions[:30]:  # sample first 30 rows
+        desc = str(tx.get("description") or "")
+        for sym, code in symbol_map.items():
+            if sym in desc:
+                votes[code] = votes.get(code, 0) + 1
+
+    # 3. Also check header / opening-balance fields for symbols
+    for key in ("opening_balance_raw", "closing_balance_raw", "bank_name"):
+        val = str(extracted.get(key) or "")
+        for sym, code in symbol_map.items():
+            if sym in val:
+                votes[code] = votes.get(code, 0) + 5  # header symbols weigh more
+
+    if votes:
+        return max(votes, key=lambda k: votes[k])
+
+    # 4. Fallback: magnitude heuristic — if average amount > 10_000 likely INR/JPY
+    amounts = []
+    for tx in transactions:
+        try:
+            a = float(tx.get("amount") or 0)
+            if a != 0:
+                amounts.append(abs(a))
+        except (TypeError, ValueError):
+            pass
+    if amounts:
+        avg = sum(amounts) / len(amounts)
+        if avg > 10_000:
+            return "INR"  # high-magnitude likely INR or similar
+
+    return "INR"  # safe default for the current dataset
+
+
+def _get_currency_profile(currency: str) -> Dict[str, float]:
+    return CURRENCY_PROFILES.get(currency, DEFAULT_PROFILE)
 
 
 def _parse_date(value: Any) -> Optional[datetime]:
@@ -78,7 +158,8 @@ def run_validations(
     warnings: List[Dict[str, Any]] = []
     consistency: Dict[str, Any] = {"consistent": True, "issues": []}
 
-    now = datetime.utcnow()
+    # SQLite returns naive datetimes — keep comparisons naive
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     doc_type = (doc_type or "unknown").lower()
 
     if doc_type == "invoice":
@@ -110,6 +191,13 @@ def run_validations(
             })
 
     if doc_type == "bank_statement":
+        # Detect currency and load profile for dynamic thresholds
+        detected_currency = _detect_currency(extracted)
+        currency_profile = _get_currency_profile(detected_currency)
+        round_unit = currency_profile["round_unit"]
+        min_round = currency_profile["min_round"]
+        outlier_factor = currency_profile["outlier_factor"]
+
         opening = _safe_number(extracted.get("opening_balance"))
         closing = _safe_number(extracted.get("closing_balance"))
         transactions = extracted.get("transactions") or []
@@ -209,12 +297,12 @@ def run_validations(
                         "actual": closing,
                     })
 
-            # ── Closing balance magnitude check ──
+            # ── Closing balance magnitude check (currency-aware) ──
             if closing is not None and tx_balances:
                 numeric_balances = [b for b in tx_balances if b is not None]
                 if numeric_balances:
                     median_balance = sorted(numeric_balances)[len(numeric_balances) // 2]
-                    if median_balance != 0 and abs(closing) > abs(median_balance) * 50:
+                    if median_balance != 0 and abs(closing) > abs(median_balance) * outlier_factor:
                         warnings.append({
                             "field": "closing_balance",
                             "message": "Closing balance magnitude is far outside the transaction balance range.",
@@ -240,21 +328,25 @@ def run_validations(
                         "ratio": round(leading_one_ratio, 3),
                     })
 
-            # ── FIX #4: Round-number detector ──
-            # Only consider NON-ZERO amounts with actual values.
-            # "Round number" = divisible by 100 (not just any integer).
+            # ── Round-number detector (currency-aware) ──
+            # Uses dynamic thresholds from the detected currency profile.
             real_amounts = [amt for amt in tx_amounts if amt != 0]
             if real_amounts:
-                round_numbers = [amt for amt in real_amounts if abs(amt) >= 100 and abs(amt) % 100 == 0]
+                round_numbers = [
+                    amt for amt in real_amounts
+                    if abs(amt) >= min_round and abs(amt) % round_unit == 0
+                ]
                 round_ratio = len(round_numbers) / len(real_amounts)
                 if round_ratio > 0.30:
                     warnings.append({
                         "field": "round_numbers",
-                        "message": "High frequency of round-number transactions (data-driven anomaly).",
+                        "message": f"High frequency of round-number transactions (currency={detected_currency}, unit={round_unit}).",
                         "severity": "warning",
                         "ratio": round(round_ratio, 3),
                         "round_count": len(round_numbers),
                         "total_count": len(real_amounts),
+                        "currency": detected_currency,
+                        "round_unit": round_unit,
                     })
 
             # ── Structuring detection ──

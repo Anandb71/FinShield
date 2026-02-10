@@ -196,7 +196,8 @@ async def ingest_documents(
             continue
 
         classification = analysis.get("classification", {})
-        extracted_fields = analysis.get("extracted_fields", {})
+        # Ensure extracted_fields is a mutable plain dict (some backends return special objects)
+        extracted_fields = dict(analysis.get("extracted_fields", {}))
         remote_layout = analysis.get("layout", {})
         layout_flags = {**local_layout, **remote_layout}
         backboard_thread_id = analysis.get("document_id")
@@ -225,6 +226,10 @@ async def ingest_documents(
                 extracted_fields["opening_balance"] = excel_result.opening_balance
             if excel_result.closing_balance is not None:
                 extracted_fields["closing_balance"] = excel_result.closing_balance
+
+            # Pass metadata discrepancy to frontend for dynamic integrity display
+            if excel_result.metadata_discrepancy:
+                extracted_fields["metadata_discrepancy"] = excel_result.metadata_discrepancy
 
         if classification.get("type") == "bank_statement":
             opening_balance = extracted_fields.get("opening_balance")

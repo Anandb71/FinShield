@@ -31,7 +31,7 @@ import {
   Switch,
   Icon
 } from "@chakra-ui/react";
-import { FiChevronLeft, FiChevronRight, FiDownload, FiFileText, FiDatabase } from "react-icons/fi";
+import { FiAlertTriangle, FiCheckCircle, FiChevronLeft, FiChevronRight, FiDatabase, FiDownload, FiFileText } from "react-icons/fi";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -154,24 +154,16 @@ export default function DocumentReviewPage() {
     }
   });
 
-  if (!docId) {
-    return <Text>Missing document id.</Text>;
-  }
-
-  if (isLoading || !data) {
-    return (
-      <HStack spacing={3} color="whiteAlpha.700">
-        <Spinner size="sm" />
-        <Text fontSize="sm">Loading document...</Text>
-      </HStack>
-    );
-  }
-
-  const { classification, validation, quality_metrics, layout, knowledge_graph } = data;
-  const extractedFields = data.extracted_fields ?? {};
-  const isBankStatement = classification.type === "bank_statement";
-  const isPdf = data.filename?.toLowerCase().endsWith(".pdf");
-  const isExcel = data.filename?.toLowerCase().endsWith(".xlsx") || data.filename?.toLowerCase().endsWith(".xls") || data.filename?.toLowerCase().endsWith(".csv");
+  // ── Derived values (null-safe so hooks always run in the same order) ──
+  const classification = data?.classification;
+  const validation = data?.validation;
+  const quality_metrics = data?.quality_metrics;
+  const layout = data?.layout;
+  const knowledge_graph = data?.knowledge_graph;
+  const extractedFields = data?.extracted_fields ?? {};
+  const isBankStatement = classification?.type === "bank_statement";
+  const isPdf = data?.filename?.toLowerCase().endsWith(".pdf") ?? false;
+  const isExcel = !!(data?.filename?.toLowerCase().endsWith(".xlsx") || data?.filename?.toLowerCase().endsWith(".xls") || data?.filename?.toLowerCase().endsWith(".csv"));
 
   const transactions = useMemo(() => {
     const raw = extractedFields.transactions;
@@ -364,6 +356,72 @@ export default function DocumentReviewPage() {
     return () => window.clearTimeout(timer);
   }, [isPdf, highlightText, pageNumber]);
 
+  // ── Dynamic integrity check: uses backend-computed discrepancy OR anomalies OR local comparison ──
+  const integrityCheck = useMemo(() => {
+    // Priority 1: Backend computed metadata_discrepancy (from normalizer, real-time)
+    const disc = extractedFields.metadata_discrepancy as
+      | { header_closing: number; calculated_closing: number; discrepancy: number; ratio: number }
+      | undefined;
+    if (disc && typeof disc.header_closing === "number" && typeof disc.calculated_closing === "number") {
+      const discrepancy = typeof disc.discrepancy === "number" ? disc.discrepancy : Math.abs(disc.header_closing - disc.calculated_closing);
+      const ratio = typeof disc.ratio === "number" ? disc.ratio : (disc.calculated_closing !== 0 ? Math.abs(disc.header_closing / disc.calculated_closing) : Infinity);
+      return {
+        reportedClosing: disc.header_closing,
+        calculatedClosing: disc.calculated_closing,
+        discrepancy,
+        ratio,
+        isFraud: discrepancy > 1.0 && ratio > 5,
+      };
+    }
+
+    // Priority 2: Check anomalies for metadata_integrity_failure (for docs already in DB)
+    const integrityAnomaly = anomalies.find(
+      (a) => a.type === "metadata_integrity_failure" && a.severity === "critical"
+    );
+    if (integrityAnomaly) {
+      // Parse key values from the anomaly details (backend-computed, dynamic)
+      const details = integrityAnomaly.details as Record<string, unknown> | undefined;
+      const hc = details?.header_closing as number | undefined;
+      const cc = details?.calculated_closing as number | undefined;
+      if (typeof hc === "number" && typeof cc === "number") {
+        const discrepancy = typeof details?.discrepancy === "number" ? (details.discrepancy as number) : Math.abs(hc - cc);
+        const ratio = typeof details?.ratio === "number" ? (details.ratio as number) : (cc !== 0 ? Math.abs(hc / cc) : Infinity);
+        return { reportedClosing: hc, calculatedClosing: cc, discrepancy, ratio, isFraud: true };
+      }
+      // Anomaly exists but no structured data — still flag as fraud
+      return { reportedClosing: null, calculatedClosing: null, discrepancy: null, ratio: null, isFraud: true };
+    }
+
+    // Priority 3: Local comparison (closing_balance vs last tx balance)
+    if (transactions.length === 0) return null;
+    const reportedClosing = typeof extractedFields.closing_balance === "number" ? extractedFields.closing_balance : null;
+    let calculatedClosing: number | null = null;
+    for (let i = transactions.length - 1; i >= 0; i--) {
+      if (typeof transactions[i].balance === "number") {
+        calculatedClosing = transactions[i].balance;
+        break;
+      }
+    }
+    if (reportedClosing === null || calculatedClosing === null) return null;
+    const discrepancy = Math.abs(reportedClosing - calculatedClosing);
+    const ratio = calculatedClosing !== 0 ? Math.abs(reportedClosing / calculatedClosing) : Infinity;
+    const isFraud = discrepancy > 1.0 && ratio > 5;
+    return { reportedClosing, calculatedClosing, discrepancy, ratio, isFraud };
+  }, [transactions, extractedFields.closing_balance, extractedFields.metadata_discrepancy, anomalies]);
+
+  // ── Early returns (AFTER all hooks to satisfy React rules) ──
+  if (!docId) {
+    return <Text>Missing document id.</Text>;
+  }
+  if (isLoading || !data || !classification || !validation) {
+    return (
+      <HStack spacing={3} color="whiteAlpha.700">
+        <Spinner size="sm" />
+        <Text fontSize="sm">Loading document...</Text>
+      </HStack>
+    );
+  }
+
   const renderText = (item: { str: string }) => {
     if (!highlightText) return item.str;
     const source = item.str;
@@ -503,59 +561,151 @@ export default function DocumentReviewPage() {
                 </Box>
               </VStack>
             ) : isExcel ? (
-              <VStack spacing={6} justify="center" height="100%" p={6}>
-                <Box
-                  border="2px dashed"
-                  borderColor="green.700"
-                  borderRadius="xl"
-                  p={8}
-                  width="100%"
-                  textAlign="center"
+              <VStack spacing={4} justify="center" height="100%" p={6}>
+                {integrityCheck && integrityCheck.isFraud ? (
+                  <Box
+                    border="2px solid"
+                    borderColor="red.500"
+                    borderRadius="xl"
+                    p={6}
+                    width="100%"
+                    bg="rgba(255,0,0,0.06)"
+                  >
+                    <VStack spacing={4}>
+                      <Icon as={FiAlertTriangle} w={12} h={12} color="red.400" />
+                      <Badge colorScheme="red" fontSize="md" px={4} py={1} borderRadius="full">
+                        INTEGRITY FAILURE
+                      </Badge>
+                      <Text color="red.300" fontSize="sm" textAlign="center">
+                        The reported closing balance does not match the balance
+                        calculated from transaction rows.
+                      </Text>
+                      <Divider borderColor="red.800" />
+                      {integrityCheck.reportedClosing !== null && integrityCheck.calculatedClosing !== null ? (
+                        <>
+                          <SimpleGrid columns={2} spacing={6} width="100%">
+                            <Stat textAlign="center">
+                              <StatLabel color="red.400" fontSize="xs">Reported Closing</StatLabel>
+                              <StatNumber fontSize="xl" color="red.300">
+                                {integrityCheck.reportedClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </StatNumber>
+                              <StatHelpText color="red.500">From document header</StatHelpText>
+                            </Stat>
+                            <Stat textAlign="center">
+                              <StatLabel color="green.400" fontSize="xs">Calculated Closing</StatLabel>
+                              <StatNumber fontSize="xl" color="green.300">
+                                {integrityCheck.calculatedClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </StatNumber>
+                              <StatHelpText color="green.500">From transaction rows</StatHelpText>
+                            </Stat>
+                          </SimpleGrid>
+                          <Divider borderColor="red.800" />
+                          <SimpleGrid columns={2} spacing={4} width="100%">
+                            <Stat textAlign="center">
+                              <StatLabel color="whiteAlpha.600" fontSize="xs">Discrepancy</StatLabel>
+                              <StatNumber fontSize="md" color="orange.300">
+                                {integrityCheck.discrepancy !== null
+                                  ? integrityCheck.discrepancy.toLocaleString(undefined, { minimumFractionDigits: 2 })
+                                  : "-"}
+                              </StatNumber>
+                            </Stat>
+                            <Stat textAlign="center">
+                              <StatLabel color="whiteAlpha.600" fontSize="xs">Ratio</StatLabel>
+                              <StatNumber fontSize="md" color="orange.300">
+                                {integrityCheck.ratio === null
+                                  ? "-"
+                                  : integrityCheck.ratio === Infinity
+                                    ? "∞"
+                                    : `${integrityCheck.ratio.toFixed(1)}x`}
+                              </StatNumber>
+                            </Stat>
+                          </SimpleGrid>
+                        </>
+                      ) : (
+                        <Text color="red.300" fontSize="sm">
+                          Integrity failure detected. Re-ingest document for detailed comparison.
+                        </Text>
+                      )}
+                    </VStack>
+                  </Box>
+                ) : (
+                  <Box
+                    border="2px dashed"
+                    borderColor={integrityCheck ? "green.700" : "gray.700"}
+                    borderRadius="xl"
+                    p={6}
+                    width="100%"
+                    textAlign="center"
+                  >
+                    <VStack spacing={4}>
+                      <Icon
+                        as={integrityCheck ? FiCheckCircle : FiDatabase}
+                        w={12}
+                        h={12}
+                        color={integrityCheck ? "green.400" : "gray.400"}
+                      />
+                      <Badge
+                        colorScheme={integrityCheck ? "green" : "gray"}
+                        fontSize="sm"
+                        px={3}
+                        py={1}
+                        borderRadius="full"
+                      >
+                        {integrityCheck ? "INTEGRITY VERIFIED" : "DIGITAL LEDGER"}
+                      </Badge>
+                      {integrityCheck ? (
+                        <>
+                          <Text color="green.400" fontSize="sm">
+                            Closing balance matches transaction data.
+                          </Text>
+                          <SimpleGrid columns={2} spacing={4} width="100%">
+                            <Stat textAlign="center">
+                              <StatLabel color="whiteAlpha.600" fontSize="xs">Reported</StatLabel>
+                              <StatNumber fontSize="md" color="green.300">
+                                {integrityCheck.reportedClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </StatNumber>
+                            </Stat>
+                            <Stat textAlign="center">
+                              <StatLabel color="whiteAlpha.600" fontSize="xs">Calculated</StatLabel>
+                              <StatNumber fontSize="md" color="green.300">
+                                {integrityCheck.calculatedClosing.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              </StatNumber>
+                            </Stat>
+                          </SimpleGrid>
+                        </>
+                      ) : (
+                        <Text color="gray.400" fontSize="sm">
+                          Structured Excel data — no image preview needed
+                        </Text>
+                      )}
+                    </VStack>
+                  </Box>
+                )}
+                <SimpleGrid columns={2} spacing={4} width="100%">
+                  <Stat textAlign="center">
+                    <StatLabel color="whiteAlpha.600" fontSize="xs">Opening Balance</StatLabel>
+                    <StatNumber fontSize="md" color="blue.300">
+                      {typeof extractedFields.opening_balance === "number"
+                        ? extractedFields.opening_balance.toLocaleString(undefined, { minimumFractionDigits: 2 })
+                        : "-"}
+                    </StatNumber>
+                  </Stat>
+                  <Stat textAlign="center">
+                    <StatLabel color="whiteAlpha.600" fontSize="xs">Transactions</StatLabel>
+                    <StatNumber fontSize="md" color="purple.300">
+                      {transactionSummary.count}
+                    </StatNumber>
+                  </Stat>
+                </SimpleGrid>
+                <Button
+                  leftIcon={<FiDownload />}
+                  colorScheme={integrityCheck?.isFraud ? "red" : "green"}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(`/api/documents/${encodeURIComponent(data.document_id)}/file`, "_blank")}
                 >
-                  <VStack spacing={4}>
-                    <Icon as={FiDatabase} w={14} h={14} color="green.400" />
-                    <Badge colorScheme="green" fontSize="sm" px={3} py={1} borderRadius="full">
-                      DIGITAL LEDGER
-                    </Badge>
-                    <Text color="gray.400" fontSize="md">
-                      Structured Excel data — no image preview needed
-                    </Text>
-                    <Divider borderColor="whiteAlpha.200" />
-                    <SimpleGrid columns={2} spacing={4} width="100%">
-                      <Stat textAlign="center">
-                        <StatLabel color="whiteAlpha.600" fontSize="xs">Opening</StatLabel>
-                        <StatNumber fontSize="md" color="green.300">
-                          {typeof extractedFields.opening_balance === "number"
-                            ? extractedFields.opening_balance.toLocaleString(undefined, { minimumFractionDigits: 2 })
-                            : "-"}
-                        </StatNumber>
-                      </Stat>
-                      <Stat textAlign="center">
-                        <StatLabel color="whiteAlpha.600" fontSize="xs">Closing</StatLabel>
-                        <StatNumber fontSize="md" color="blue.300">
-                          {typeof extractedFields.closing_balance === "number"
-                            ? extractedFields.closing_balance.toLocaleString(undefined, { minimumFractionDigits: 2 })
-                            : "-"}
-                        </StatNumber>
-                      </Stat>
-                    </SimpleGrid>
-                    <Text fontSize="sm" color="whiteAlpha.500">
-                      {transactionSummary.count} transactions parsed · Quality: {typeof quality_metrics?.score === "number" ? `${Math.round(quality_metrics.score * 100)}%` : "Digital (100%)"}
-                    </Text>
-                    <Button
-                      leftIcon={<FiDownload />}
-                      colorScheme="green"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(`/api/documents/${encodeURIComponent(data.document_id)}/file`, "_blank")}
-                    >
-                      Download Original File
-                    </Button>
-                    <Text fontSize="xs" color="whiteAlpha.400">
-                      Review extracted data in the intelligence panel →
-                    </Text>
-                  </VStack>
-                </Box>
+                  Download Original File
+                </Button>
               </VStack>
             ) : (
               <VStack align="stretch" spacing={3} p={6} height="100%" justify="center">

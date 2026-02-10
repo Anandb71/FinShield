@@ -243,12 +243,12 @@ def normalize_excel_statement(content: bytes, filename: str = "") -> NormalizedS
     """
     Normalize a bank statement Excel file into a clean, structured format.
     
-    Handles the real-world messiness found in the dataset:
-    - Account 3: Multi-section file with summary + transaction sections, -61M closing balance
-    - Account 4: Mixed date formats, OCR garbage rows ("unrings ICEASE")
-    - Account 5: Comma-formatted numbers, different header names
-    - Account 8: Summary at top before transactions, synthetic text
-    - Account 9: Simple format with transaction totals embedded
+    Handles real-world messiness found in financial documents:
+    - Multi-section files with summary + transaction sections
+    - Mixed date formats, OCR garbage rows
+    - Comma-formatted numbers, varying header names
+    - Summary sections at top before transactions
+    - Embedded transaction totals and metadata rows
     """
     result = NormalizedStatement()
     result.repair_log.append(f"normalizing: {filename}")
@@ -457,7 +457,7 @@ def normalize_excel_statement(content: bytes, filename: str = "") -> NormalizedS
         result.closing_balance = summary_closing
         result.repair_log.append(f"closing_from_summary: {summary_closing}")
 
-    # Step 5: Metadata Integrity Check (Account 3 fraud pattern)
+    # Step 5: Metadata Integrity Check
     # Compare the header/summary closing balance against the actual last
     # transaction balance.  A massive discrepancy (>1.0 AND >50x) means the
     # header is lying — possible data tampering / summary injection.
@@ -480,7 +480,7 @@ def normalize_excel_statement(content: bytes, filename: str = "") -> NormalizedS
                     "header_closing": header_closing,
                     "calculated_closing": calculated_closing,
                     "discrepancy": discrepancy,
-                    "ratio": abs(header_closing / calculated_closing) if calculated_closing != 0 else float('inf'),
+                    "ratio": round(abs(header_closing / calculated_closing), 2) if calculated_closing != 0 else 999999999,
                 }
                 result.detected_anomalies.append({
                     "type": "metadata_integrity_failure",
@@ -492,6 +492,10 @@ def normalize_excel_statement(content: bytes, filename: str = "") -> NormalizedS
                         "The document header is inconsistent with the transaction data — "
                         "possible summary injection or data tampering."
                     ),
+                    "header_closing": header_closing,
+                    "calculated_closing": calculated_closing,
+                    "discrepancy": discrepancy,
+                    "ratio": round(abs(header_closing / calculated_closing), 2) if calculated_closing != 0 else 999999999,
                 })
                 result.repair_log.append(
                     f"CRITICAL: metadata integrity failure - "
@@ -511,7 +515,7 @@ def normalize_excel_statement(content: bytes, filename: str = "") -> NormalizedS
                         "header_closing": result.closing_balance,
                         "calculated_closing": last_tx_balance,
                         "discrepancy": abs(result.closing_balance - last_tx_balance),
-                        "ratio": abs(result.closing_balance / last_tx_balance) if last_tx_balance != 0 else float('inf'),
+                        "ratio": round(abs(result.closing_balance / last_tx_balance), 2) if last_tx_balance != 0 else 999999999,
                     }
                     result.detected_anomalies.append({
                         "type": "metadata_integrity_failure",

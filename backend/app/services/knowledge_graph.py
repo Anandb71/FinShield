@@ -168,17 +168,20 @@ def build_graph_from_document(
     txns = extracted_fields.get("transactions")
     if isinstance(txns, list) and txns:
         from collections import Counter
-        desc_counts: Counter[str] = Counter()
+        merchant_counts: Counter[str] = Counter()
         for txn in txns:
-            desc = (txn.get("description") or "").strip()
-            if desc and len(desc) > 2:
-                desc_counts[desc] += 1
-        for desc, count in desc_counts.most_common(_MAX_COUNTERPARTIES):
-            cp_id = f"{document_id}:cp:{desc[:40]}"
+            # Prefer the normalised merchant name; fall back to description
+            merchant = (txn.get("merchant_normalized") or "").strip()
+            if not merchant:
+                merchant = (txn.get("description") or "").strip()
+            if merchant and len(merchant) > 1:
+                merchant_counts[merchant] += 1
+        for merchant, count in merchant_counts.most_common(_MAX_COUNTERPARTIES):
+            cp_id = f"{document_id}:cp:{merchant[:40]}"
             if cp_id not in seen_ids:
                 nodes.append(KGNode(
                     id=cp_id, type="Counterparty",
-                    properties={"canonical_value": desc, "transaction_count": count},
+                    properties={"canonical_value": merchant, "transaction_count": count},
                 ))
                 seen_ids.add(cp_id)
                 edges.append(

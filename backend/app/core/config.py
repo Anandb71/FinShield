@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     backboard_retry_max_delay_seconds: float = 12.0
 
     # Storage
-    database_url: str = "sqlite:///./finsight.db"
+    database_url: str = f"sqlite:///{BASE_DIR / 'finsight.db'}"
 
     # Review thresholds
     review_confidence_threshold: float = 0.8

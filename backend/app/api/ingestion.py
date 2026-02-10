@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.config import get_settings
 from app.db.session import get_session

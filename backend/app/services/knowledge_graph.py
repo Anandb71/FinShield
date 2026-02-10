@@ -92,6 +92,12 @@ class DocumentKnowledgeGraph(BaseModel):
     )
 
 
+# Extra scalar fields to surface as nodes on the knowledge graph
+_ACCOUNT_FIELDS = ("account_number", "ifsc", "micr")
+_BALANCE_FIELDS = ("opening_balance", "closing_balance")
+_MAX_COUNTERPARTIES = 10  # keep graph readable
+
+
 def build_graph_from_document(
     document_id: str,
     doc_type: str,
@@ -104,14 +110,17 @@ def build_graph_from_document(
             type="Document",
             properties={
                 "doc_type": doc_type,
-                "fields": extracted_fields,
             },
         )
     ]
     edges: List[KGEdge] = []
+    seen_ids: set[str] = {document_id}
 
+    # ── Resolved entities (vendor, bank, employer, etc.) ──
     for entity in entity_nodes:
-        nodes.append(entity)
+        if entity.id not in seen_ids:
+            nodes.append(entity)
+            seen_ids.add(entity.id)
         edges.append(
             KGEdge(
                 id=f"{document_id}->{entity.id}:MENTIONS",
@@ -121,6 +130,62 @@ def build_graph_from_document(
                 properties={},
             )
         )
+
+    # ── Account info node ──
+    acct_props = {
+        k: str(extracted_fields[k])
+        for k in _ACCOUNT_FIELDS
+        if extracted_fields.get(k)
+    }
+    if acct_props:
+        acct_id = f"{document_id}:account"
+        acct_label = acct_props.get("account_number", "Account")
+        nodes.append(KGNode(id=acct_id, type="Account", properties={"canonical_value": acct_label, **acct_props}))
+        seen_ids.add(acct_id)
+        edges.append(
+            KGEdge(id=f"{document_id}->{acct_id}:HAS_ACCOUNT", type="HAS_ACCOUNT",
+                   source_id=document_id, target_id=acct_id, properties={})
+        )
+
+    # ── Balance summary node ──
+    bal_props = {
+        k: extracted_fields[k]
+        for k in _BALANCE_FIELDS
+        if extracted_fields.get(k) is not None
+    }
+    if bal_props:
+        bal_id = f"{document_id}:balance"
+        ob = bal_props.get("opening_balance", "?")
+        cb = bal_props.get("closing_balance", "?")
+        nodes.append(KGNode(id=bal_id, type="Balance", properties={"canonical_value": f"{ob} → {cb}", **bal_props}))
+        seen_ids.add(bal_id)
+        edges.append(
+            KGEdge(id=f"{document_id}->{bal_id}:HAS_BALANCE", type="HAS_BALANCE",
+                   source_id=document_id, target_id=bal_id, properties={})
+        )
+
+    # ── Top transaction counterparties ──
+    txns = extracted_fields.get("transactions")
+    if isinstance(txns, list) and txns:
+        from collections import Counter
+        desc_counts: Counter[str] = Counter()
+        for txn in txns:
+            desc = (txn.get("description") or "").strip()
+            if desc and len(desc) > 2:
+                desc_counts[desc] += 1
+        for desc, count in desc_counts.most_common(_MAX_COUNTERPARTIES):
+            cp_id = f"{document_id}:cp:{desc[:40]}"
+            if cp_id not in seen_ids:
+                nodes.append(KGNode(
+                    id=cp_id, type="Counterparty",
+                    properties={"canonical_value": desc, "transaction_count": count},
+                ))
+                seen_ids.add(cp_id)
+                edges.append(
+                    KGEdge(id=f"{document_id}->{cp_id}:TRANSACTS_WITH", type="TRANSACTS_WITH",
+                           source_id=document_id, target_id=cp_id,
+                           properties={"count": count})
+                )
 
     return DocumentKnowledgeGraph(document_id=document_id, nodes=nodes, edges=edges)
 

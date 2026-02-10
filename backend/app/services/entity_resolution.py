@@ -14,6 +14,11 @@ ENTITY_FIELDS = {
     "bank_name": "bank",
     "institution_name": "bank",
     "employer_name": "employer",
+    "employee_name": "employee",
+    "account_holder_name": "account_holder",
+    "payer_name": "payer",
+    "payee_name": "payee",
+    "biller_name": "biller",
 }
 
 

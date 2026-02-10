@@ -1,8 +1,10 @@
-# FinShield 🛡️
+# Aegis (FinShield) 🛡️
 
-> **AI-Powered Financial Document Forensics Platform**
+> **AI-Powered Financial Document Forensics Platform — Built at DevSoc '26**
 
-FinShield is an autonomous auditing system that ingests financial documents (bank statements, invoices, payslips), detects fraud in real time, and visualizes forensic intelligence through an interactive knowledge graph.
+Aegis is an autonomous forensic auditing system built during the **DevSoc '26 hackathon** for the **Hotfoot sponsor track** (with **Backboard** as the AI/RAG sponsor). It ingests financial documents (bank statements, invoices, payslips, images), detects fraud using forensic mathematics (Benford's Law, balance integrity verification), and visualizes entity relationships through an interactive knowledge graph.
+
+**Hotfoot** provided the challenge track and the financial document datasets. When the official dataset was **changed mid-hackathon from images to Excel spreadsheets**, we adapted our pipeline to handle both — our system processes PDFs, images (via OCR), and Excel files through the same unified analysis engine.
 
 ---
 
@@ -40,7 +42,69 @@ FinShield is an autonomous auditing system that ingests financial documents (ban
 
 ---
 
-## 🛠️ Tech Stack
+## � Project Evolution
+
+### Before Review 1 (Feb 8, 2026)
+
+**Original Vision**: FinShield was initially built as **"The Financial Flight Recorder"** — an autonomous, real-time defense system for mobile users. We attempted to solve **two Hotfoot sponsor track challenges** simultaneously at **DevSoc '26**:
+
+1. **Call Shield (Hotfoot Audio track)** — Real-time analysis of phone calls to detect urgency manipulation, fear tactics, and pressure techniques used by scammers. Used WebSocket streaming with a live risk meter.
+2. **Contract Scanner (Hotfoot Docs + Backboard track)** — Instant detection of predatory clauses, hidden fees, and exploitative terms in financial documents, with cross-referencing via Backboard RAG.
+
+> ⚠️ **Note**: Hotfoot's rules required teams to **pick only one track**. We initially tried both but pivoted to document intelligence after Review 1 (see below).
+
+**Tech at this stage:**
+- **Frontend**: Flutter with Riverpod state management, cybersecurity dark theme with neon accents, glassmorphism cards, animated shield logo, and a `call_shield_screen.dart` with a real-time risk meter
+- **Backend**: FastAPI with mock service implementations for Hotfoot Audio (`audio_analyzer.py`), Hotfoot Docs (`document_scanner.py`), and Backboard RAG (`context_engine.py`)
+- **Real-time pipeline**: WebSocket-based streaming (`sockets.py` + `ConnectionManager`) with `audio_processor.py` stub and `document_engine.py` stub
+- **Architecture**: Monorepo with `/frontend` (Flutter) and `/backend` (FastAPI), Docker Compose for full-stack dev
+
+**Key commits:**
+| Commit | Date | Description |
+|--------|------|-------------|
+| [`8ef22ce`](https://github.com/Anandb71/FinShield/commit/8ef22ce) | Feb 8 | Initial project setup — Flutter + FastAPI + mock Hotfoot Audio/Docs/Backboard |
+| [`c1e1a27`](https://github.com/Anandb71/FinShield/commit/c1e1a27) | Feb 8 | Add Flutter lib source files (home screen, glassmorphism widgets) |
+| [`f3616fb`](https://github.com/Anandb71/FinShield/commit/f3616fb) | Feb 8 | Phase 2: WebSocket Pipeline — audio_processor stub, call_shield_screen with risk meter |
+
+---
+
+### After Review 1 → Before Review 2 (Feb 9–10, 2026)
+
+**The Pivot**: After Review 1 feedback and Hotfoot's requirement to **choose only one sponsor track**, we made a strategic decision to **drop the audio/call analysis track entirely** and go all-in on **document forensic intelligence**. The project evolved from a dual-challenge attempt into a focused, deep financial document auditing platform.
+
+**Dataset curveball**: Midway through, Hotfoot **changed the official dataset from images (scanned documents) to Excel spreadsheets**. Rather than just switching, we built a pipeline that handles **both** — PDFs and images go through OCR + LLM extraction, while Excel files go through our custom normalization engine. This dual-format capability became one of our strongest differentiators.
+
+**What changed and why:**
+
+| What Changed | Why |
+|---|---|
+| **Dropped Hotfoot Audio** (deleted `audio_analyzer.py`, `audio_processor.py`, `call_shield_screen.dart`) | Hotfoot required picking one track. Document intelligence had deeper forensic potential. |
+| **Flutter → React webapp** (new `/webapp` with React 18 + TypeScript + Vite + Chakra UI) | Flutter was great for mobile but the use case shifted to a desktop-first investigator dashboard. React + Chakra UI enabled faster iteration on complex data-heavy UIs (tables, charts, graphs). |
+| **Mock services → Real AI pipeline** (Backboard Assistant API integration with GPT-4o) | Replaced mock implementations with actual LLM-powered document classification, field extraction, and validation. |
+| **Added forensic analysis suite** | Benford's Law, balance integrity checks, structuring detection, metadata fraud detection — none of this existed pre-review. |
+| **Added Knowledge Graph** | Cross-document entity resolution with interactive force-directed visualization. Links accounts, vendors, and counterparties across uploaded documents. |
+| **Added Excel Normalization Engine** | Parses messy bank statement spreadsheets from any bank layout — auto-detects headers, columns, date formats. |
+| **Added Self-Learning Loop** | Human corrections feed back into the system. Error clustering, retraining triggers, continuous improvement. |
+| **Rebranded to Aegis** | Reflected the evolved mission — from a "shield" to a full forensic auditing platform. |
+
+**Key commits in this phase:**
+| Commit | Date | Description |
+|--------|------|-------------|
+| [`05fffb1`](https://github.com/Anandb71/FinShield/commit/05fffb1) | Feb 9 | **THE PIVOT** — Finsight Knowledge Graph & Reconciliation |
+| [`e89bb45`](https://github.com/Anandb71/FinShield/commit/e89bb45) | Feb 9 | Backboard-only document intelligence system (classification, validation, entity resolution, learning loop) |
+| [`d03a5f5`](https://github.com/Anandb71/FinShield/commit/d03a5f5) | Feb 9 | Universal Pipeline Dashboard with Bulk Ingestion and Review Queue |
+| [`7b5b646`](https://github.com/Anandb71/FinShield/commit/7b5b646) | Feb 9 | Complete frontend rebuild — **audio services deleted**, industry-grade Flutter redesign |
+| [`0e5c3e2`](https://github.com/Anandb71/FinShield/commit/0e5c3e2) | Feb 10 | Fix 10 diagnosed bugs + Excel viewer |
+| [`2852da7`](https://github.com/Anandb71/FinShield/commit/2852da7) | Feb 10 | Metadata integrity fraud detection (Lie Detector panel) |
+| [`ecf29f1`](https://github.com/Anandb71/FinShield/commit/ecf29f1) | Feb 10 | Enrich knowledge graph with accounts, balances & counterparties |
+| [`089f663`](https://github.com/Anandb71/FinShield/commit/089f663) | Feb 10 | **Rebrand**: Finsight/FinShield → Aegis everywhere |
+| [`6b59238`](https://github.com/Anandb71/FinShield/commit/6b59238) | Feb 10 | UI: Dramatically improve DocumentReviewPage inspector UI |
+
+**The Flutter frontend still exists in `/frontend` as a legacy reference**, but the primary interface is now the React webapp in `/webapp`.
+
+---
+
+## �🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -103,10 +167,27 @@ FinShield/
 ## 📍 Roadmap
 - [x] Document ingestion pipeline with AI classification
 - [x] Excel bank statement normalization engine
+- [x] PDF + image ingestion with OCR support
 - [x] Forensic validation suite (Benford, structuring, balance checks)
 - [x] Metadata integrity fraud detection (Lie Detector)
 - [x] React web dashboard with document review
 - [x] Knowledge graph entity resolution
+- [x] Cross-document entity linking
+- [x] Self-learning loop with human corrections
 - [ ] Multi-currency support (dynamic round-number thresholds)
 - [ ] Automated report generation
 - [ ] Batch re-analysis on rule updates
+
+---
+
+## 🏆 Hackathon
+
+**DevSoc '26** — Hotfoot Sponsor Track (Document Intelligence)
+
+| | |
+|---|---|
+| **Event** | DevSoc '26 |
+| **Sponsors** | Hotfoot (challenge track + datasets), Backboard (AI/RAG platform) |
+| **Track** | Financial Document Intelligence |
+| **Dataset** | Changed mid-hackathon from images → Excel; we support both |
+| **Team** | Built in ~48 hours |

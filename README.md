@@ -1,53 +1,112 @@
-# Finsight: Autonomous Auditor 🛡️
+# FinShield 🛡️
 
-> **The Forensic Knowledge Graph for Financial Intelligence.**  
-> *Formerly "FinShield"*
+> **AI-Powered Financial Document Forensics Platform**
 
-![Finsight Banner](https://via.placeholder.com/1200x600.png?text=Finsight:+Forensic+Knowledge+Graph)
-
-Finsight is an autonomous auditing system that uses a **Forensic Knowledge Graph** to detect fraud, verify payments, and uncover hidden conflicts of interest across thousands of documents.
+FinShield is an autonomous auditing system that ingests financial documents (bank statements, invoices, payslips), detects fraud in real time, and visualizes forensic intelligence through an interactive knowledge graph.
 
 ---
 
 ## 🚀 Key Features
 
-### 1. Investigation Board (The Graph)
-No more lists. Visualize your financial network.
-- **Interactive Graph**: Navigate Invoices (Blue), Vendors (Yellow), and Risks (Red).
-- **Conflict Hunter**: Automatically detects shared addresses/phones between Vendors and Employees.
-- **Time Travel**: Filter the graph timeline with a slider.
+### Fraud Detection Engine
+- **Metadata Integrity Check** — Compares header/summary balances against calculated transaction balances. Catches "lying headers" where the closing balance has been tampered with (e.g. injecting a -61M balance into a statement that actually closes at ₹61).
+- **Benford's Law Analysis** — Flags unnatural leading-digit distributions in transaction amounts.
+- **Structuring / Smurfing Detection** — Identifies clusters of transactions just below reporting thresholds.
+- **Round-Number Syndrome** — Detects suspiciously high ratios of round-number transactions.
+- **Date-Sequence Violations** — Catches out-of-order or impossible date progressions.
+- **Balance Continuity Checks** — Verifies running balance consistency across every row.
 
-### 2. X-Ray Reconciliation
-Verify if an invoice was *actually* paid.
-- **Smart Match**: Auto-links Invoices to Bank Transactions (Exact & Fuzzy Matching).
-- **Ghost Detection**: Flags "Ghost Invoices" (No payment found).
-- **Human-in-the-Loop**: "Force Match" logic feeds the learning loop.
+### Lie Detector Panel
+- Dynamic integrity display on the Review page — shows **INTEGRITY FAILURE** (red) or **INTEGRITY VERIFIED** (green) based on real-time comparison of reported vs calculated balances.
+- 3-priority fallback: backend `metadata_discrepancy` → anomaly structured fields → local transaction comparison.
+- Zero hardcoded values — all thresholds computed from actual data.
 
-### 3. Visual Nervous System
-- **Deep Document Understanding**: X-Ray overlays for Tables, Entities, and Anomalies.
-- **Consistency Engine**: Checks historical patterns (e.g., "Invoice amount is 20% higher than average").
+### Excel Normalization ("The Repair Shop")
+- Parses messy bank statement spreadsheets from any bank layout.
+- Auto-detects header rows, column mappings, date formats.
+- Repairs OCR artifacts, skips junk rows, handles merged cells.
+- Extracts opening/closing balances from summary sections.
+- Infers transaction types (debit/credit) from signed amounts.
+
+### Investigation Board (Knowledge Graph)
+- **Interactive 3D Graph** — Navigate documents, entities, and risk nodes.
+- **Conflict Hunter** — Detects shared addresses/phones between vendors and employees.
+- **Entity Resolution** — Links accounts, names, and references across documents.
+
+### X-Ray Reconciliation
+- **Smart Match** — Auto-links invoices to bank transactions (exact & fuzzy).
+- **Ghost Detection** — Flags invoices with no matching payment.
+- **Human-in-the-Loop** — Force-match decisions feed the learning loop.
 
 ---
 
 ## 🛠️ Tech Stack
-- **Frontend**: Flutter (GraphView, Animate_Do, Riverpod)
-- **Design**: "Government-Grade" Dark Mode UI
-- **Backend Logic**: Python (Consistency & Reconciliation Engines)
+
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Python 3.13, FastAPI, SQLModel, SQLAlchemy, SQLite |
+| **AI/LLM** | OpenAI GPT-4o (via Backboard client) |
+| **Excel Parsing** | openpyxl |
+| **Frontend (Web)** | React 18, TypeScript, Vite, Chakra UI |
+| **Visualization** | react-force-graph-3d, Recharts, react-pdf |
+| **Frontend (Mobile)** | Flutter (legacy, in `/frontend`) |
 
 ---
 
 ## 🏃‍♂️ Quick Start
 
+### Backend
 ```bash
-# Frontend
+cd backend
+python -m venv ../.venv
+../.venv/Scripts/activate   # Windows
+pip install -e ".[dev]"
+uvicorn app.main:app --reload --port 8000
+```
+
+### Web Frontend
+```bash
+cd webapp
+npm install
+npm run dev   # → http://localhost:5173
+```
+
+### Flutter Frontend (legacy)
+```bash
 cd frontend
 flutter run -d chrome
 ```
 
 ---
 
+## 📁 Project Structure
+
+```
+FinShield/
+├── backend/           # FastAPI server + AI pipeline
+│   ├── app/
+│   │   ├── api/       # REST endpoints (ingestion, documents, forensics, review, dashboard)
+│   │   ├── services/  # Excel normalizer, validation engine, backboard client
+│   │   ├── db/        # SQLModel models + session management
+│   │   └── core/      # Settings, knowledge graph store
+│   └── storage/       # Uploaded document files
+├── webapp/            # React + Vite frontend
+│   └── src/
+│       ├── pages/     # Dashboard, DocumentReview, Upload
+│       └── components/
+├── frontend/          # Flutter frontend (legacy)
+└── docker-compose.yml
+```
+
+---
+
 ## 📍 Roadmap
-- [x] Phase 1: Audio Intelligence (Archived)
-- [x] Phase 2: Document X-Ray
-- [x] Phase 3: Forensic Knowledge Graph (Current)
-- [ ] Phase 4: Automated Subpoena Generation
+- [x] Document ingestion pipeline with AI classification
+- [x] Excel bank statement normalization engine
+- [x] Forensic validation suite (Benford, structuring, balance checks)
+- [x] Metadata integrity fraud detection (Lie Detector)
+- [x] React web dashboard with document review
+- [x] Knowledge graph entity resolution
+- [ ] Multi-currency support (dynamic round-number thresholds)
+- [ ] Automated report generation
+- [ ] Batch re-analysis on rule updates

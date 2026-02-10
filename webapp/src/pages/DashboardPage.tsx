@@ -37,7 +37,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { FiActivity, FiAlertTriangle, FiBookOpen, FiClock, FiRefreshCw, FiShield, FiTrendingUp, FiZap } from "react-icons/fi";
+import { FiActivity, FiAlertTriangle, FiBookOpen, FiClock, FiRefreshCw, FiShield, FiTrash2, FiTrendingUp, FiZap } from "react-icons/fi";
 
 import { api } from "../api/client";
 import type { DashboardMetrics } from "../api/types";
@@ -124,6 +124,28 @@ export default function DashboardPage() {
     },
     onError: () => {
       toast({ title: "Learning sync failed", status: "error", duration: 3000, isClosable: true });
+    },
+  });
+
+  // ── Clear History ────────────────────────────────────────────
+  const clearHistoryMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.delete("/admin/history");
+      return data as { status: string; deleted: Record<string, number>; files_removed: number };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries();
+      const total = Object.values(result?.deleted ?? {}).reduce((a, b) => a + b, 0);
+      toast({
+        title: "History Cleared",
+        description: `${total} records and ${result?.files_removed ?? 0} file folders removed.`,
+        status: "info",
+        duration: 5000,
+        isClosable: true,
+      });
+    },
+    onError: () => {
+      toast({ title: "Failed to clear history", status: "error", duration: 3000, isClosable: true });
     },
   });
 
@@ -628,6 +650,28 @@ export default function DashboardPage() {
               </VStack>
             </Box>
           )}
+
+          <Box mt={4} pt={4} borderTop="1px solid" borderColor="whiteAlpha.100">
+            <Text fontSize="xs" color="whiteAlpha.500" mb={3}>
+              Remove all documents, corrections, anomalies, and uploaded files.
+              This action cannot be undone.
+            </Text>
+            <Button
+              size="sm"
+              colorScheme="red"
+              variant="outline"
+              leftIcon={<FiTrash2 />}
+              onClick={() => {
+                if (window.confirm("Are you sure? This will permanently delete ALL documents, corrections, anomalies, and uploaded files.")) {
+                  clearHistoryMutation.mutate();
+                }
+              }}
+              isLoading={clearHistoryMutation.isPending}
+              loadingText="Clearing..."
+            >
+              Clear All History
+            </Button>
+          </Box>
         </Box>
 
         <Box

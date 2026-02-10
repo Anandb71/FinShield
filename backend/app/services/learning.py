@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Any, Dict, List
 
 from sqlmodel import Session, select
 
 from app.core.config import get_settings
 from app.db.models import Correction, LearningEvent, Document
+
+logger = logging.getLogger(__name__)
 
 
 def build_correction_summary(correction: Correction) -> str:
@@ -45,6 +49,12 @@ def cluster_corrections(session: Session, limit: int = 5) -> Dict[str, Any]:
 
 
 def check_learning_triggers(session: Session) -> Dict[str, Any]:
+    """
+    Evaluate whether learning thresholds have been crossed.
+
+    When a trigger fires, we also kick off an async learning sync so
+    correction patterns are pushed to Backboard automatically.
+    """
     settings = get_settings()
     corrections = session.exec(select(Correction)).all()
     documents = session.exec(select(Document)).all()
@@ -75,11 +85,46 @@ def check_learning_triggers(session: Session) -> Dict[str, Any]:
     if events:
         session.commit()
 
+    # -------------------------------------------------------------------
+    # Auto-sync learning patterns to Backboard when triggers fire
+    # -------------------------------------------------------------------
+    auto_synced = False
+    if events:
+        try:
+            from app.services.backboard_learning import get_learning_enhancer
+
+            enhancer = get_learning_enhancer()
+            if enhancer.should_auto_sync(session):
+                # Fire-and-forget in the running event loop
+                loop = asyncio.get_running_loop()
+                loop.create_task(_background_learning_sync(enhancer, session))
+                auto_synced = True
+                logger.info(
+                    "Learning trigger fired — auto-sync scheduled (%d events)",
+                    len(events),
+                )
+        except Exception as exc:
+            logger.warning("Auto-sync scheduling failed: %s", exc)
+
     return {
         "events": [
-            {"event_type": e.event_type, "payload": e.payload, "created_at": e.created_at.isoformat()}
+            {
+                "event_type": e.event_type,
+                "payload": e.payload,
+                "created_at": e.created_at.isoformat(),
+            }
             for e in events
         ],
         "total_corrections": total_corrections,
         "error_rate": error_rate,
+        "auto_synced": auto_synced,
     }
+
+
+async def _background_learning_sync(enhancer, session: Session) -> None:
+    """Run learning sync in the background (best-effort)."""
+    try:
+        result = await enhancer.sync_learning_patterns(session)
+        logger.info("Background learning sync completed: %s", result)
+    except Exception as exc:
+        logger.error("Background learning sync failed: %s", exc)

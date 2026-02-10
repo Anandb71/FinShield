@@ -32,6 +32,51 @@ class BackboardLearningEnhancer:
 
     def __init__(self) -> None:
         self._client = BackboardClient()
+        self._patterns_loaded = False
+
+    # ------------------------------------------------------------------
+    # 0.  Load cached patterns from DB on first use (survives restarts)
+    # ------------------------------------------------------------------
+    def _ensure_patterns_loaded(self, session: Session) -> None:
+        """Load the latest learning patterns into the prompt cache if not done."""
+        if self._patterns_loaded:
+            return
+        self._patterns_loaded = True
+
+        # Find the most recent learning_sync event and re-build from corrections
+        corrections: List[Correction] = list(session.exec(select(Correction)).all())
+        if not corrections:
+            return
+
+        clusters: Dict[str, Dict[str, Any]] = {}
+        for c in corrections:
+            bucket = clusters.setdefault(c.field_name, {"count": 0, "examples": []})
+            bucket["count"] += 1
+            if len(bucket["examples"]) < 5:
+                bucket["examples"].append({
+                    "original": c.original_value,
+                    "corrected": c.corrected_value,
+                })
+
+        pattern_lines: list[str] = []
+        for field_name, data in clusters.items():
+            if data["count"] < _MIN_CLUSTER_SIZE:
+                continue
+            examples_text = "; ".join(
+                f"'{ex['original']}' → '{ex['corrected']}'" for ex in data["examples"]
+            )
+            pattern_lines.append(
+                f"• Field '{field_name}' corrected {data['count']}x. "
+                f"Examples: {examples_text}"
+            )
+
+        if pattern_lines:
+            import app.services.backboard_client as _bc
+            _bc._learned_patterns = "\n".join(pattern_lines)
+            logger.info(
+                "Loaded %d learning patterns from DB into prompt cache",
+                len(pattern_lines),
+            )
 
     # ------------------------------------------------------------------
     # 1.  Push a single document's corrections into its Backboard thread
@@ -76,9 +121,10 @@ class BackboardLearningEnhancer:
     # ------------------------------------------------------------------
     async def sync_learning_patterns(self, session: Session) -> Dict[str, Any]:
         """
-        Analyse all corrections, cluster by field, and post each pattern
-        as a learning message to a *new* Backboard thread so the assistant
-        remembers the pattern for all future documents.
+        Analyse all corrections, cluster by field, and:
+        1. Build a learning-pattern string that gets injected into every
+           future LLM prompt (via backboard_client._learned_patterns).
+        2. Post each pattern into affected Backboard threads (best-effort).
         """
         corrections: List[Correction] = list(session.exec(select(Correction)).all())
         if not corrections:
@@ -100,12 +146,33 @@ class BackboardLearningEnhancer:
                     }
                 )
 
-        # Post each significant cluster to Backboard -------------------
-        synced = 0
-        for field_name, data in clusters.items():
-            if data["count"] < _MIN_CLUSTER_SIZE:
-                continue
+        # ---- Build prompt-injection string ---------------------------
+        pattern_lines: list[str] = []
+        significant_clusters = {
+            k: v for k, v in clusters.items() if v["count"] >= _MIN_CLUSTER_SIZE
+        }
+        for field_name, data in significant_clusters.items():
+            examples_text = "; ".join(
+                f"'{ex['original']}' → '{ex['corrected']}'"
+                for ex in data["examples"]
+            )
+            pattern_lines.append(
+                f"• Field '{field_name}' corrected {data['count']}x. "
+                f"Examples: {examples_text}"
+            )
 
+        # Update the global prompt cache so every new document sees this
+        import app.services.backboard_client as _bc
+        _bc._learned_patterns = "\n".join(pattern_lines)
+        logger.info(
+            "Updated prompt learning cache: %d patterns, %d chars",
+            len(pattern_lines),
+            len(_bc._learned_patterns),
+        )
+
+        # ---- Also post to affected threads (best-effort) -------------
+        synced = 0
+        for field_name, data in significant_clusters.items():
             examples_text = "\n".join(
                 f"  {i}. Wrong: '{ex['original']}' → Correct: '{ex['corrected']}'"
                 for i, ex in enumerate(data["examples"], 1)
@@ -119,7 +186,6 @@ class BackboardLearningEnhancer:
             )
 
             try:
-                # Send as a correction to every thread that had this field wrong
                 doc_ids_affected = {ex["document_id"] for ex in data["examples"]}
                 for doc_id in doc_ids_affected:
                     doc = session.get(Document, doc_id)

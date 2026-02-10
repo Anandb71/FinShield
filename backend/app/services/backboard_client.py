@@ -5,7 +5,7 @@ import logging
 import os
 from io import BytesIO
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -14,6 +14,12 @@ from app.services.file_preprocess import preprocess_image_for_ocr
 
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Cached learning patterns injected into every new prompt.
+# Updated by BackboardLearningEnhancer.sync_learning_patterns().
+# ---------------------------------------------------------------------------
+_learned_patterns: str = ""
 
 
 class BackboardClient:
@@ -117,8 +123,19 @@ class BackboardClient:
 
     def _build_prompt(self, doc_hint: Optional[str] = None) -> str:
         hint_section = f"\nContext: {doc_hint}\n" if doc_hint else "\n"
+
+        # Inject learned correction patterns so every new analysis benefits
+        learning_section = ""
+        if _learned_patterns:
+            learning_section = (
+                "\n--- LEARNED CORRECTION PATTERNS (from human reviewers) ---\n"
+                f"{_learned_patterns}"
+                "\n--- END LEARNED PATTERNS ---\n\n"
+            )
+
         return (
             "You are Finsight, an expert financial document underwriter.\n"
+            f"{learning_section}"
             "Analyze the attached document and return ONLY a single JSON object "
             "with this EXACT structure (no extra keys, no comments, no markdown):\n"
             f"{hint_section}\n"

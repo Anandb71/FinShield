@@ -135,6 +135,10 @@ async def ingest_documents(
     results: List[Dict[str, Any]] = []
     batch_id = str(uuid4())
 
+    # Ensure learned correction patterns are loaded into prompt cache
+    from app.services.backboard_learning import get_learning_enhancer
+    get_learning_enhancer()._ensure_patterns_loaded(session)
+
     for upload in files:
         t0 = time.monotonic()
         content = await upload.read()

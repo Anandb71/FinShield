@@ -135,10 +135,11 @@ async def get_document(doc_id: str, session: Session = Depends(get_session)) -> 
         raise HTTPException(status_code=404, detail="Document not found")
 
     store = get_knowledge_store()
-    graph = store.get_document_graph(doc.id)
 
-    # Rebuild knowledge graph on-the-fly when lost (e.g. after restart)
-    if graph is None and doc.extracted_fields:
+    # Always rebuild knowledge graph from persisted data so it reflects
+    # the latest builder logic (new node types, counterparties, etc.)
+    graph = None
+    if doc.extracted_fields:
         links = session.exec(
             sql_select(DocumentEntity).where(DocumentEntity.document_id == doc.id)
         ).all()

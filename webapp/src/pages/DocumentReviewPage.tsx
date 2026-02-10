@@ -337,10 +337,18 @@ export default function DocumentReviewPage() {
   }, [knowledge_graph]);
 
   const NODE_COLORS: Record<string, string> = {
-    Document: "#9F7AEA",   // purple
-    vendor: "#48BB78",     // green
-    bank: "#4299E1",       // blue
-    employer: "#ED8936",   // orange
+    Document: "#9F7AEA",       // purple
+    vendor: "#48BB78",         // green
+    bank: "#4299E1",           // blue
+    employer: "#ED8936",       // orange
+    employee: "#F6E05E",       // yellow
+    account_holder: "#FC8181", // red
+    payer: "#B794F4",          // light purple
+    payee: "#76E4F7",          // cyan
+    biller: "#F687B3",         // pink
+    Account: "#63B3ED",        // light blue
+    Balance: "#68D391",        // light green
+    Counterparty: "#CBD5E0",   // gray
   };
 
   const kgContainerRef = useRef<HTMLDivElement | null>(null);
@@ -357,8 +365,9 @@ export default function DocumentReviewPage() {
     (node: { id?: string; group?: string; name?: string; x?: number; y?: number }, ctx: CanvasRenderingContext2D) => {
       const x = node.x ?? 0;
       const y = node.y ?? 0;
-      const r = node.group === "Document" ? 8 : 6;
-      const color = NODE_COLORS[node.group ?? ""] ?? "#A0AEC0";
+      const g = node.group ?? "";
+      const r = g === "Document" ? 10 : g === "Counterparty" ? 4 : 6;
+      const color = NODE_COLORS[g] ?? "#A0AEC0";
 
       ctx.beginPath();
       ctx.arc(x, y, r, 0, 2 * Math.PI);
@@ -369,12 +378,12 @@ export default function DocumentReviewPage() {
       ctx.stroke();
 
       // Label
-      const label = node.name ?? node.group ?? "";
-      ctx.font = "4px Inter, sans-serif";
+      const label = node.name ?? g ?? "";
+      ctx.font = g === "Document" ? "5px Inter, sans-serif" : "3.5px Inter, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       ctx.fillStyle = "rgba(255,255,255,0.85)";
-      ctx.fillText(label.length > 24 ? label.slice(0, 22) + "…" : label, x, y + r + 2);
+      ctx.fillText(label.length > 28 ? label.slice(0, 26) + "…" : label, x, y + r + 2);
     },
     [],
   );
@@ -1380,11 +1389,13 @@ export default function DocumentReviewPage() {
                   />
                 </Box>
                 <HStack spacing={4} mt={2} flexWrap="wrap">
-                  {Object.entries(NODE_COLORS).map(([type, color]) => (
+                  {Object.entries(NODE_COLORS)
+                    .filter(([type]) => graphData.nodes.some((n) => n.group === type))
+                    .map(([type, color]) => (
                     <HStack key={type} spacing={1}>
                       <Box w="10px" h="10px" borderRadius="full" bg={color} />
                       <Text fontSize="xs" color="whiteAlpha.600" textTransform="capitalize">
-                        {type}
+                        {type === "account_holder" ? "Account Holder" : type}
                       </Text>
                     </HStack>
                   ))}

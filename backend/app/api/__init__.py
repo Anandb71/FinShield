@@ -1,4 +1,4 @@
-"""Finsight API Router"""
+"""Aegis API Router"""
 
 from fastapi import APIRouter
 

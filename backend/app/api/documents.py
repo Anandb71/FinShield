@@ -1,4 +1,4 @@
-"""Finsight - Document Intelligence API."""
+"""Aegis - Document Intelligence API."""
 
 from typing import Any, Dict
 

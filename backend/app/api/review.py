@@ -1,4 +1,4 @@
-"""Finsight - Review & corrections API."""
+"""Aegis - Review & corrections API."""
 
 from typing import Any, Dict, Optional
 

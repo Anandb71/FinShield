@@ -1,4 +1,4 @@
-# FinShield - Full Stack Development Environment
+# Aegis - Full Stack Development Environment
 # Run all services with: docker-compose up
 
 version: '3.8'
@@ -48,4 +48,4 @@ services:
 
 networks:
   default:
-    name: finshield-network
+    name: aegis-network

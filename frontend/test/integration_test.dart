@@ -6,7 +6,7 @@ void main() {
     final stopwatch = Stopwatch()..start();
     final url = Uri.parse('http://127.0.0.1:8000/docs');
 
-    print('\n🔄 Connecting to Finsight Backend...');
+    print('\n🔄 Connecting to Aegis Backend...');
     print('   Target: $url');
 
     try {

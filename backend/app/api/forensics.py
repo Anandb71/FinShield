@@ -1,5 +1,5 @@
 """
-FinShield - Anomalies & Batch Status API
+Aegis - Anomalies & Batch Status API
 
 Endpoints:
   GET  /api/anomalies/{doc_id}    - List all anomalies for a document

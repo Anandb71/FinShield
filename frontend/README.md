@@ -1,4 +1,4 @@
-# FinShield Frontend
+# Aegis Frontend
 
 Full-stack orchestration for development.
 

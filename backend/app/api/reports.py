@@ -1,5 +1,5 @@
 """
-FinShield - Automated Report Generation API
+Aegis - Automated Report Generation API
 
 Generates comprehensive forensic analysis reports for documents.
 Reports include:
@@ -242,7 +242,7 @@ async def generate_html_report(
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>FinShield Forensic Report — {doc.filename}</title>
+<title>Aegis Forensic Report — {doc.filename}</title>
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
   body {{ font-family: 'Segoe UI', system-ui, sans-serif; background: #0C0F1A; color: #E0E0E0; padding: 40px; }}
@@ -265,7 +265,7 @@ async def generate_html_report(
 </head>
 <body>
 <div class="container">
-  <h1>🛡️ FinShield Forensic Report</h1>
+  <h1>🛡️ Aegis Forensic Report</h1>
   <p class="subtitle">Report ID: RPT-{doc.id[:8].upper()} &nbsp;|&nbsp; Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</p>
 
   <h2>Document Overview</h2>
@@ -350,7 +350,7 @@ async def generate_html_report(
   </table>
 
   <div class="footer">
-    <p>FinShield — AI-Powered Financial Document Forensics</p>
+    <p>Aegis — AI-Powered Financial Document Forensics</p>
     <p>This report was auto-generated. Always verify findings with original source documents.</p>
   </div>
 </div>

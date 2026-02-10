@@ -1,4 +1,4 @@
-"""Finsight API - Main Application."""
+"""Aegis API - Main Application."""
 
 from __future__ import annotations
 

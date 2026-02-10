@@ -1,4 +1,4 @@
-"""Finsight - Bulk ingestion API."""
+"""Aegis - Bulk ingestion API."""
 
 import time
 from typing import Any, Dict, List

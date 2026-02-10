@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-FinShield - Dataset ingestion script.
+Aegis - Dataset ingestion script.
 
 Uses the same pipeline as the API to ingest local dataset folders.
 """
@@ -457,7 +457,7 @@ async def ingest_dataset(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Ingest dataset folder into FinShield")
+    parser = argparse.ArgumentParser(description="Ingest dataset folder into Aegis")
     parser.add_argument(
         "--dataset-path",
         type=str,

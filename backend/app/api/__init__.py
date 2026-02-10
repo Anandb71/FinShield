@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api import health, documents, ingestion, review, dashboard, learning, knowledge, forensics
+from app.api import health, documents, ingestion, review, dashboard, learning, knowledge, forensics, reports, batch
 
 router = APIRouter(prefix="/api")
 
@@ -14,3 +14,5 @@ router.include_router(dashboard.router, tags=["dashboard"])
 router.include_router(learning.router, tags=["learning"])
 router.include_router(knowledge.router, prefix="/knowledge", tags=["knowledge"])
 router.include_router(forensics.router, prefix="/forensics", tags=["forensics"])
+router.include_router(reports.router, tags=["reports"])
+router.include_router(batch.router, tags=["batch"])

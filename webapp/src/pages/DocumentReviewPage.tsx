@@ -201,9 +201,13 @@ export default function DocumentReviewPage() {
       .map((txn) => Math.abs(txn.amount ?? 0))
       .filter((value) => Number.isFinite(value) && value > 0)
       .sort((a, b) => a - b);
-    if (values.length < 8) return 10000;
+    if (values.length < 8) {
+      // Not enough data — use median × 10 as a sensible dynamic fallback
+      const median = values.length > 0 ? values[Math.floor(values.length / 2)] : 0;
+      return median > 0 ? median * 10 : values[values.length - 1] ?? 1000;
+    }
     const idx = Math.floor(values.length * 0.9);
-    return values[Math.min(idx, values.length - 1)] || 10000;
+    return values[Math.min(idx, values.length - 1)] || 1000;
   }, [transactions]);
 
   const filteredTransactions = useMemo(() => {
@@ -791,6 +795,18 @@ export default function DocumentReviewPage() {
               isLoading={reanalyzeMutation.isPending}
             >
               Re-run AI analysis
+            </Button>
+            <Button
+              mt={2}
+              size="xs"
+              variant="outline"
+              colorScheme="cyan"
+              leftIcon={<FiDownload />}
+              onClick={() => {
+                window.open(`/api/reports/${docId}/html`, "_blank");
+              }}
+            >
+              Download Report
             </Button>
           </Box>
 

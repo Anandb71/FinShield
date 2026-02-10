@@ -1,6 +1,7 @@
 import {
   Box,
   Badge,
+  Button,
   Heading,
   HStack,
   Icon,
@@ -19,9 +20,10 @@ import {
   Thead,
   Tr,
   VStack,
-  Progress
+  Progress,
+  useToast
 } from "@chakra-ui/react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
@@ -35,7 +37,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { FiActivity, FiAlertTriangle, FiClock, FiShield, FiTrendingUp, FiZap } from "react-icons/fi";
+import { FiActivity, FiAlertTriangle, FiClock, FiRefreshCw, FiShield, FiTrendingUp, FiZap } from "react-icons/fi";
 
 import { api } from "../api/client";
 import type { DashboardMetrics } from "../api/types";
@@ -60,6 +62,31 @@ export default function DashboardPage() {
     queryFn: async () => {
       const { data } = await api.get<DashboardMetrics>("/dashboard/metrics");
       return data;
+    }
+  });
+
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const batchReanalyzeMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post("/batch/reanalyze");
+      return data;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["dashboardMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["reviewQueue"] });
+      const changed = result?.summary?.status_changed ?? 0;
+      toast({
+        title: "Batch Re-analysis Complete",
+        description: `${result?.total_documents ?? 0} documents re-analyzed. ${changed} status changes.`,
+        status: "success",
+        duration: 4000,
+        isClosable: true
+      });
+    },
+    onError: () => {
+      toast({ title: "Re-analysis failed", status: "error", duration: 3000, isClosable: true });
     }
   });
 
@@ -519,6 +546,86 @@ export default function DashboardPage() {
               </Sankey>
             </ResponsiveContainer>
           </Box>
+        </Box>
+      </SimpleGrid>
+
+      {/* ── Batch Controls ────────────────────────────────────────── */}
+      <SimpleGrid columns={[1, null, 2]} spacing={6} mt={6}>
+        <Box
+          borderRadius="24px"
+          bg="whiteAlpha.50"
+          border="1px solid"
+          borderColor="whiteAlpha.100"
+          p={5}
+          boxShadow="soft"
+        >
+          <HStack mb={3}>
+            <Icon as={FiRefreshCw} color="aurora.violet" />
+            <Heading size="sm">Batch Re-analysis</Heading>
+          </HStack>
+          <Text fontSize="xs" color="whiteAlpha.600" mb={4}>
+            Re-run forensic validation on all documents using the latest rules.
+            Useful after updating detection thresholds or adding new anomaly patterns.
+          </Text>
+          <Button
+            size="sm"
+            colorScheme="purple"
+            leftIcon={<FiRefreshCw />}
+            onClick={() => batchReanalyzeMutation.mutate()}
+            isLoading={batchReanalyzeMutation.isPending}
+            loadingText="Re-analyzing..."
+          >
+            Re-analyze All Documents
+          </Button>
+          {batchReanalyzeMutation.data && (
+            <Box mt={3} p={3} bg="whiteAlpha.50" borderRadius="12px" fontSize="xs">
+              <Text color="aurora.mint" fontWeight="bold">Last run results:</Text>
+              <VStack align="start" spacing={1} mt={1}>
+                <Text>Documents: {batchReanalyzeMutation.data.total_documents}</Text>
+                <Text>Time: {batchReanalyzeMutation.data.total_time_ms}ms</Text>
+                <Text>Errors found: {batchReanalyzeMutation.data.summary?.errors_found ?? 0}</Text>
+                <Text>Warnings: {batchReanalyzeMutation.data.summary?.warnings_found ?? 0}</Text>
+                <Text color={batchReanalyzeMutation.data.summary?.status_changed > 0 ? "aurora.coral" : "aurora.mint"}>
+                  Status changes: {batchReanalyzeMutation.data.summary?.status_changed ?? 0}
+                </Text>
+              </VStack>
+            </Box>
+          )}
+        </Box>
+
+        <Box
+          borderRadius="24px"
+          bg="whiteAlpha.50"
+          border="1px solid"
+          borderColor="whiteAlpha.100"
+          p={5}
+          boxShadow="soft"
+        >
+          <HStack mb={3}>
+            <Icon as={FiShield} color="aurora.coral" />
+            <Heading size="sm">Forensic Rules</Heading>
+          </HStack>
+          <Text fontSize="xs" color="whiteAlpha.600" mb={3}>
+            Current confidence penalty configuration. Update via the API
+            endpoint <Tag size="sm" colorScheme="purple">PUT /api/batch/rules</Tag> to
+            adjust thresholds and auto-trigger batch re-analysis.
+          </Text>
+          <Table size="sm">
+            <Thead>
+              <Tr>
+                <Th color="whiteAlpha.600">Rule</Th>
+                <Th color="whiteAlpha.600" isNumeric>Value</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              <Tr><Td fontSize="xs">Error penalty</Td><Td isNumeric fontSize="xs">−15%</Td></Tr>
+              <Tr><Td fontSize="xs">Critical warning</Td><Td isNumeric fontSize="xs">−10%</Td></Tr>
+              <Tr><Td fontSize="xs">Normal warning</Td><Td isNumeric fontSize="xs">−3%</Td></Tr>
+              <Tr><Td fontSize="xs">Info warning</Td><Td isNumeric fontSize="xs">−1%</Td></Tr>
+              <Tr><Td fontSize="xs">Confidence floor</Td><Td isNumeric fontSize="xs">10%</Td></Tr>
+              <Tr><Td fontSize="xs">Fraud cap</Td><Td isNumeric fontSize="xs">12%</Td></Tr>
+            </Tbody>
+          </Table>
         </Box>
       </SimpleGrid>
     </Box>

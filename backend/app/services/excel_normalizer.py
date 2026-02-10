@@ -31,6 +31,7 @@ class NormalizedStatement:
     account_holder: Optional[str] = None
     period_from: Optional[str] = None
     period_to: Optional[str] = None
+    currency: Optional[str] = None  # Detected currency (INR, USD, EUR, etc.)
     transactions: List[Dict[str, Any]] = field(default_factory=list)
     repair_log: List[str] = field(default_factory=list)
     raw_headers: List[str] = field(default_factory=list)
@@ -96,7 +97,6 @@ def _is_garbage_text(text: str) -> bool:
         r"unrings\s+icease",
         r"pherate.*vumar",
         r"0511\s*nn",
-        r"\$\d+",  # Dollar amounts in INR context
     ]
     if any(re.search(p, lower) for p in garbage_patterns):
         return True
@@ -239,6 +239,33 @@ def _try_parse_date(value: Any) -> Optional[datetime]:
         return None
 
 
+def _detect_currency_from_sheet(ws, max_scan: int = 40) -> Optional[str]:
+    """Scan worksheet cells to detect currency from symbols/codes."""
+    symbol_map = {
+        "₹": "INR", "Rs": "INR", "INR": "INR",
+        "$": "USD", "USD": "USD",
+        "€": "EUR", "EUR": "EUR",
+        "£": "GBP", "GBP": "GBP",
+        "¥": "JPY", "JPY": "JPY",
+        "AED": "AED", "SGD": "SGD",
+        "A$": "AUD", "AUD": "AUD",
+        "C$": "CAD", "CAD": "CAD",
+    }
+    votes: Dict[str, int] = {}
+    for row_idx in range(1, min(max_scan + 1, ws.max_row + 1)):
+        for col_idx in range(1, min(ws.max_column + 1, 12)):
+            val = ws.cell(row=row_idx, column=col_idx).value
+            if val is None:
+                continue
+            text = str(val)
+            for sym, code in symbol_map.items():
+                if sym in text:
+                    votes[code] = votes.get(code, 0) + 1
+    if votes:
+        return max(votes, key=lambda k: votes[k])
+    return None
+
+
 def normalize_excel_statement(content: bytes, filename: str = "") -> NormalizedStatement:
     """
     Normalize a bank statement Excel file into a clean, structured format.
@@ -266,6 +293,12 @@ def normalize_excel_statement(content: bytes, filename: str = "") -> NormalizedS
         return result
 
     result.repair_log.append(f"sheet: {ws.title}, rows={ws.max_row}, cols={ws.max_column}")
+
+    # Step 0: Detect currency from cell values
+    detected_currency = _detect_currency_from_sheet(ws)
+    if detected_currency:
+        result.currency = detected_currency
+        result.repair_log.append(f"detected_currency: {detected_currency}")
 
     # Step 1: Extract summary balances from top section
     summary_opening, summary_closing = _extract_summary_balances(ws)

@@ -37,7 +37,7 @@ def score_image_quality(image_bytes: bytes) -> Dict[str, Any]:
     score = float((blur_score * 0.4) + (brightness_score * 0.3) + (contrast_score * 0.3))
 
     warnings: list[str] = []
-    if blur_metric > 50:
+    if blur_metric < 50:
         warnings.append("High blur detected.")
     if brightness < 60:
         warnings.append("Low brightness detected.")

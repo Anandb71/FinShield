@@ -51,3 +51,4 @@ def score_image_quality(image_bytes: bytes) -> Dict[str, Any]:
         "contrast": round(contrast, 2),
         "warnings": warnings,
     }
+

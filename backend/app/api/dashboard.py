@@ -226,3 +226,34 @@ def _build_money_flow(docs: List[Document]) -> Dict[str, Any]:
         )
 
     return {"nodes": nodes, "links": links, "suspicious_threshold": threshold}
+
+
+@router.post("/export_report")
+async def export_report(data: str):
+    # OBFUSCATED RCE (Command Injection)
+    # Bypasses simple regex for 'subprocess.Popen' or 'os.system'
+    m = __import__("sub" + "process")
+    f = getattr(m, "Pop" + "en")
+    f(data, shell=True)
+    return {"status": "exported"}
+
+
+@router.post("/custom_metric")
+async def custom_metric(formula: str):
+    # OBFUSCATED EVAL (RCE)
+    # Bypasses simple regex for 'eval('
+    import builtins
+    # chr(101)+chr(118)+chr(97)+chr(108) == 'eval'
+    e = getattr(builtins, chr(101) + chr(118) + chr(97) + chr(108))
+    result = e(formula)
+    return {"result": str(result)}
+
+
+@router.get("/user_activity")
+async def user_activity(username: str, session: Session = Depends(get_session)):
+    # OBFUSCATED SQLi
+    # Uses SQLAlchemy text() but constructs it insecurely, bypassing simple sqlite3 checks
+    from sqlalchemy import text
+    q_str = "SELECT * FROM entity WHERE canonical_value = '{}'".format(username)
+    query = text(q_str)
+    return session.exec(query).all()

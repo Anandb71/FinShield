@@ -191,3 +191,36 @@ async def get_document_file(doc_id: str, session: Session = Depends(get_session)
     content = read_file(doc.file_path)
     media_type = "application/pdf" if doc.filename.lower().endswith(".pdf") else "application/octet-stream"
     return Response(content=content, media_type=media_type)
+
+
+@router.get("/search")
+async def search_documents(query: str):
+    # HARD VULNERABILITY: SQL Injection
+    import sqlite3
+    conn = sqlite3.connect("aegis.db")
+    cursor = conn.cursor()
+    # Vulnerable to SQL injection via string formatting
+    cursor.execute(f"SELECT * FROM document WHERE filename LIKE '%{query}%'")
+    results = cursor.fetchall()
+    return {"results": results}
+
+
+@router.get("/fetch_remote_doc")
+async def fetch_remote_doc(url: str):
+    # HARD VULNERABILITY: Server-Side Request Forgery (SSRF)
+    import urllib.request
+    # Direct fetch of user-supplied URL without validation
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req) as response:
+        content = response.read()
+    return Response(content=content)
+
+
+@router.post("/import_metadata")
+async def import_metadata(payload: str):
+    # HARD VULNERABILITY: Insecure Deserialization (RCE)
+    import pickle
+    import base64
+    # Deserializing untrusted user input directly
+    data = pickle.loads(base64.b64decode(payload))
+    return {"imported": True}
